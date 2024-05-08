@@ -10,7 +10,6 @@ namespace duckdb {
 
 template <class T>
 struct BitState {
-	using TYPE = T;
 	bool is_set;
 	T value;
 };
@@ -68,7 +67,7 @@ struct BitwiseOperation {
 
 	template <class INPUT_TYPE, class STATE>
 	static void Assign(STATE &state, INPUT_TYPE input) {
-		state.value = typename STATE::TYPE(input);
+		state.value = input;
 	}
 
 	template <class STATE, class OP>
@@ -91,7 +90,7 @@ struct BitwiseOperation {
 		if (!state.is_set) {
 			finalize_data.ReturnNull();
 		} else {
-			target = T(state.value);
+			target = state.value;
 		}
 	}
 
@@ -103,23 +102,21 @@ struct BitwiseOperation {
 struct BitAndOperation : public BitwiseOperation {
 	template <class INPUT_TYPE, class STATE>
 	static void Execute(STATE &state, INPUT_TYPE input) {
-		state.value &= typename STATE::TYPE(input);
-		;
+		state.value &= input;
 	}
 };
 
 struct BitOrOperation : public BitwiseOperation {
 	template <class INPUT_TYPE, class STATE>
 	static void Execute(STATE &state, INPUT_TYPE input) {
-		state.value |= typename STATE::TYPE(input);
-		;
+		state.value |= input;
 	}
 };
 
 struct BitXorOperation : public BitwiseOperation {
 	template <class INPUT_TYPE, class STATE>
 	static void Execute(STATE &state, INPUT_TYPE input) {
-		state.value ^= typename STATE::TYPE(input);
+		state.value ^= input;
 	}
 
 	template <class INPUT_TYPE, class STATE, class OP>

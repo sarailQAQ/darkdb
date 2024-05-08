@@ -7,7 +7,6 @@ add_library_unity(
   alter_table_info.cpp
   attach_info.cpp
   comment_on_column_info.cpp
-  copy_info.cpp
   create_info.cpp
   create_index_info.cpp
   create_aggregate_function_info.cpp
@@ -17,7 +16,6 @@ add_library_unity(
   create_pragma_function_info.cpp
   create_secret_info.cpp
   create_sequence_info.cpp
-  create_schema_info.cpp
   create_scalar_function_info.cpp
   create_table_function_info.cpp
   create_table_info.cpp
@@ -26,11 +24,8 @@ add_library_unity(
   detach_info.cpp
   drop_info.cpp
   extra_drop_info.cpp
-  load_info.cpp
   sample_options.cpp
-  parse_info.cpp
   transaction_info.cpp
-  pragma_info.cpp
   vacuum_info.cpp)
 set(ALL_OBJECT_FILES
     ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:duckdb_parsed_data>

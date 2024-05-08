@@ -28,7 +28,7 @@ struct LogicalExtensionOperator;
 
 class OperatorExtension {
 public:
-	bind_function_t Bind; // NOLINT: backwards compatibility
+	bind_function_t Bind;
 
 	//! Additional info passed to the CreatePlan & Bind functions
 	shared_ptr<OperatorExtensionInfo> operator_info;

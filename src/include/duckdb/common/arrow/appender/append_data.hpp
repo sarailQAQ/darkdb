@@ -59,7 +59,6 @@ struct ArrowAppendData {
 //===--------------------------------------------------------------------===//
 // Append Helper Functions
 //===--------------------------------------------------------------------===//
-
 static void GetBitPosition(idx_t row_idx, idx_t &current_byte, uint8_t &current_bit) {
 	current_byte = row_idx / 8;
 	current_bit = row_idx % 8;

@@ -22,7 +22,7 @@ class Deserializer;
 
 class TableStatisticsLock {
 public:
-	explicit TableStatisticsLock(mutex &l) : guard(l) {
+	TableStatisticsLock(mutex &l) : guard(l) {
 	}
 
 	lock_guard<mutex> guard;

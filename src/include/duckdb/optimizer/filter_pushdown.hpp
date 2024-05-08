@@ -18,7 +18,7 @@ class Optimizer;
 
 class FilterPushdown {
 public:
-	explicit FilterPushdown(Optimizer &optimizer, bool convert_mark_joins = true);
+	explicit FilterPushdown(Optimizer &optimizer);
 
 	//! Perform filter pushdown
 	unique_ptr<LogicalOperator> Rewrite(unique_ptr<LogicalOperator> op);
@@ -38,11 +38,9 @@ public:
 	};
 
 private:
-	Optimizer &optimizer;
-	FilterCombiner combiner;
-	bool convert_mark_joins;
-
 	vector<unique_ptr<Filter>> filters;
+	Optimizer &optimizer;
+
 	//! Push down a LogicalAggregate op
 	unique_ptr<LogicalOperator> PushdownAggregate(unique_ptr<LogicalOperator> op);
 	//! Push down a distinct operator
@@ -92,6 +90,8 @@ private:
 	void GenerateFilters();
 	//! if there are filters in this FilterPushdown node, push them into the combiner
 	void PushFilters();
+
+	FilterCombiner combiner;
 };
 
 } // namespace duckdb

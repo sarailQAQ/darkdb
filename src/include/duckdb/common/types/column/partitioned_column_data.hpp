@@ -117,7 +117,7 @@ public:
 	}
 	template <class TARGET>
 	const TARGET &Cast() const {
-		DynamicCastCheck<TARGET>(this);
+		D_ASSERT(dynamic_cast<const TARGET *>(this));
 		return reinterpret_cast<const TARGET &>(*this);
 	}
 };

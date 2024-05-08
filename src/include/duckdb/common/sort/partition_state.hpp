@@ -209,8 +209,6 @@ public:
 class PartitionGlobalMergeStates {
 public:
 	struct Callback {
-		virtual ~Callback() = default;
-
 		virtual bool HasError() const {
 			return false;
 		}

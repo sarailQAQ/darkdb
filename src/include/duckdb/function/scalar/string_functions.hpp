@@ -12,14 +12,14 @@
 #include "utf8proc.hpp"
 #include "duckdb/function/built_in_functions.hpp"
 
-namespace duckdb_re2 {
+namespace re2 {
 class RE2;
 }
 
 namespace duckdb {
 
 struct LowerFun {
-	static const uint8_t ASCII_TO_LOWER_MAP[];
+	static uint8_t ascii_to_lower_map[];
 
 	//! Returns the length of the result string obtained from lowercasing the given input (in bytes)
 	static idx_t LowerLength(const char *input_data, idx_t input_length);
@@ -31,7 +31,7 @@ struct LowerFun {
 };
 
 struct UpperFun {
-	static const uint8_t ASCII_TO_UPPER_MAP[];
+	static uint8_t ascii_to_upper_map[];
 
 	static void RegisterFunction(BuiltinFunctions &set);
 };
@@ -78,7 +78,7 @@ struct LengthFun {
 				return length;
 			}
 		}
-		return UnsafeNumericCast<TR>(input_length);
+		return input_length;
 	}
 };
 

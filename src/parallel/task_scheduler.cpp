@@ -2,7 +2,6 @@
 
 #include "duckdb/common/chrono.hpp"
 #include "duckdb/common/exception.hpp"
-#include "duckdb/common/numeric_utils.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/main/database.hpp"
 
@@ -10,7 +9,6 @@
 #include "concurrentqueue.h"
 #include "duckdb/common/thread.hpp"
 #include "lightweightsemaphore.h"
-
 #include <thread>
 #else
 #include <queue>
@@ -21,10 +19,6 @@ namespace duckdb {
 struct SchedulerThread {
 #ifndef DUCKDB_NO_THREADS
 	explicit SchedulerThread(unique_ptr<thread> thread_p) : internal_thread(std::move(thread_p)) {
-	}
-
-	~SchedulerThread() {
-		Allocator::ThreadFlush(0);
 	}
 
 	unique_ptr<thread> internal_thread;
@@ -103,17 +97,12 @@ ProducerToken::~ProducerToken() {
 
 TaskScheduler::TaskScheduler(DatabaseInstance &db)
     : db(db), queue(make_uniq<ConcurrentQueue>()),
-      allocator_flush_threshold(db.config.options.allocator_flush_threshold), requested_thread_count(0),
-      current_thread_count(1) {
+      allocator_flush_threshold(db.config.options.allocator_flush_threshold), thread_count(0) {
 }
 
 TaskScheduler::~TaskScheduler() {
 #ifndef DUCKDB_NO_THREADS
-	try {
-		RelaunchThreadsInternal(0);
-	} catch (...) {
-		// nothing we can do in the destructor if this fails
-	}
+	RelaunchThreadsInternal(0);
 #endif
 }
 
@@ -240,7 +229,9 @@ static void ThreadExecuteTasks(TaskScheduler *scheduler, atomic<bool> *marker) {
 #endif
 
 int32_t TaskScheduler::NumberOfThreads() {
-	return current_thread_count.load();
+	lock_guard<mutex> t(thread_lock);
+	auto &config = DBConfig::GetConfig(db);
+	return NumericCast<int32_t>(threads.size() + config.options.external_threads);
 }
 
 void TaskScheduler::SetThreads(idx_t total_threads, idx_t external_threads) {
@@ -257,7 +248,7 @@ void TaskScheduler::SetThreads(idx_t total_threads, idx_t external_threads) {
 		    "DuckDB was compiled without threads! Setting total_threads != external_threads is not allowed.");
 	}
 #endif
-	requested_thread_count = NumericCast<int32_t>(total_threads - external_threads);
+	thread_count = NumericCast<int32_t>(total_threads - external_threads);
 }
 
 void TaskScheduler::SetAllocatorFlushTreshold(idx_t threshold) {
@@ -265,8 +256,7 @@ void TaskScheduler::SetAllocatorFlushTreshold(idx_t threshold) {
 
 void TaskScheduler::Signal(idx_t n) {
 #ifndef DUCKDB_NO_THREADS
-	typedef std::make_signed<std::size_t>::type ssize_t;
-	queue->semaphore.signal(NumericCast<ssize_t>(n));
+	queue->semaphore.signal(n);
 #endif
 }
 
@@ -278,16 +268,14 @@ void TaskScheduler::YieldThread() {
 
 void TaskScheduler::RelaunchThreads() {
 	lock_guard<mutex> t(thread_lock);
-	auto n = requested_thread_count.load();
+	auto n = thread_count.load();
 	RelaunchThreadsInternal(n);
 }
 
 void TaskScheduler::RelaunchThreadsInternal(int32_t n) {
 #ifndef DUCKDB_NO_THREADS
-	auto &config = DBConfig::GetConfig(db);
-	auto new_thread_count = NumericCast<idx_t>(n);
+	idx_t new_thread_count = n;
 	if (threads.size() == new_thread_count) {
-		current_thread_count = NumericCast<int32_t>(threads.size() + config.options.external_threads);
 		return;
 	}
 	if (threads.size() > new_thread_count) {
@@ -310,21 +298,13 @@ void TaskScheduler::RelaunchThreadsInternal(int32_t n) {
 		for (idx_t i = 0; i < create_new_threads; i++) {
 			// launch a thread and assign it a cancellation marker
 			auto marker = unique_ptr<atomic<bool>>(new atomic<bool>(true));
-			unique_ptr<thread> worker_thread;
-			try {
-				worker_thread = make_uniq<thread>(ThreadExecuteTasks, this, marker.get());
-			} catch (std::exception &ex) {
-				// thread constructor failed - this can happen when the system has too many threads allocated
-				// in this case we cannot allocate more threads - stop launching them
-				break;
-			}
+			auto worker_thread = make_uniq<thread>(ThreadExecuteTasks, this, marker.get());
 			auto thread_wrapper = make_uniq<SchedulerThread>(std::move(worker_thread));
 
 			threads.push_back(std::move(thread_wrapper));
 			markers.push_back(std::move(marker));
 		}
 	}
-	current_thread_count = NumericCast<int32_t>(threads.size() + config.options.external_threads);
 #endif
 }
 

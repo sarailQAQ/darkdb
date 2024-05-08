@@ -126,7 +126,7 @@ public:
 
 		// Schedule tasks equal to the number of threads, which will each merge multiple partitions
 		auto &ts = TaskScheduler::GetScheduler(context);
-		auto num_threads = NumericCast<idx_t>(ts.NumberOfThreads());
+		idx_t num_threads = ts.NumberOfThreads();
 
 		vector<shared_ptr<Task>> iejoin_tasks;
 		for (idx_t tnum = 0; tnum < num_threads; tnum++) {
@@ -149,7 +149,7 @@ public:
 void PhysicalRangeJoin::GlobalSortedTable::ScheduleMergeTasks(Pipeline &pipeline, Event &event) {
 	// Initialize global sort state for a round of merging
 	global_sort_state.InitializeMergeRound();
-	auto new_event = make_shared_ptr<RangeJoinMergeEvent>(*this, pipeline);
+	auto new_event = make_shared<RangeJoinMergeEvent>(*this, pipeline);
 	event.InsertEvent(std::move(new_event));
 }
 
@@ -237,12 +237,7 @@ idx_t PhysicalRangeJoin::LocalSortedTable::MergeNulls(Vector &primary, const vec
 			// Primary is already NULL
 			return count;
 		}
-		for (size_t c = 1; c < keys.data.size(); ++c) {
-			// Skip comparisons that accept NULLs
-			if (conditions[c].comparison == ExpressionType::COMPARE_DISTINCT_FROM) {
-				continue;
-			}
-			auto &v = keys.data[c];
+		for (auto &v : keys.data) {
 			if (ConstantVector::IsNull(v)) {
 				// Create a new validity mask to avoid modifying original mask
 				auto &pvalidity = ConstantVector::Validity(primary);

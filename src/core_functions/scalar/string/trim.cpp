@@ -23,13 +23,12 @@ struct TrimOperator {
 		idx_t begin = 0;
 		if (LTRIM) {
 			while (begin < size) {
-				auto bytes =
-				    utf8proc_iterate(str + begin, UnsafeNumericCast<utf8proc_ssize_t>(size - begin), &codepoint);
+				auto bytes = utf8proc_iterate(str + begin, size - begin, &codepoint);
 				D_ASSERT(bytes > 0);
 				if (utf8proc_category(codepoint) != UTF8PROC_CATEGORY_ZS) {
 					break;
 				}
-				begin += UnsafeNumericCast<idx_t>(bytes);
+				begin += bytes;
 			}
 		}
 
@@ -38,9 +37,9 @@ struct TrimOperator {
 		if (RTRIM) {
 			end = begin;
 			for (auto next = begin; next < size;) {
-				auto bytes = utf8proc_iterate(str + next, UnsafeNumericCast<utf8proc_ssize_t>(size - next), &codepoint);
+				auto bytes = utf8proc_iterate(str + next, size - next, &codepoint);
 				D_ASSERT(bytes > 0);
-				next += UnsafeNumericCast<idx_t>(bytes);
+				next += bytes;
 				if (utf8proc_category(codepoint) != UTF8PROC_CATEGORY_ZS) {
 					end = next;
 				}
@@ -70,8 +69,7 @@ static void GetIgnoredCodepoints(string_t ignored, unordered_set<utf8proc_int32_
 	idx_t pos = 0;
 	while (pos < size) {
 		utf8proc_int32_t codepoint;
-		pos += UnsafeNumericCast<idx_t>(
-		    utf8proc_iterate(dataptr + pos, UnsafeNumericCast<utf8proc_ssize_t>(size - pos), &codepoint));
+		pos += utf8proc_iterate(dataptr + pos, size - pos, &codepoint);
 		ignored_codepoints.insert(codepoint);
 	}
 }
@@ -93,12 +91,11 @@ static void BinaryTrimFunction(DataChunk &input, ExpressionState &state, Vector 
 		    idx_t begin = 0;
 		    if (LTRIM) {
 			    while (begin < size) {
-				    auto bytes =
-				        utf8proc_iterate(str + begin, UnsafeNumericCast<utf8proc_ssize_t>(size - begin), &codepoint);
+				    auto bytes = utf8proc_iterate(str + begin, size - begin, &codepoint);
 				    if (ignored_codepoints.find(codepoint) == ignored_codepoints.end()) {
 					    break;
 				    }
-				    begin += UnsafeNumericCast<idx_t>(bytes);
+				    begin += bytes;
 			    }
 		    }
 
@@ -107,10 +104,9 @@ static void BinaryTrimFunction(DataChunk &input, ExpressionState &state, Vector 
 		    if (RTRIM) {
 			    end = begin;
 			    for (auto next = begin; next < size;) {
-				    auto bytes =
-				        utf8proc_iterate(str + next, UnsafeNumericCast<utf8proc_ssize_t>(size - next), &codepoint);
+				    auto bytes = utf8proc_iterate(str + next, size - next, &codepoint);
 				    D_ASSERT(bytes > 0);
-				    next += UnsafeNumericCast<idx_t>(bytes);
+				    next += bytes;
 				    if (ignored_codepoints.find(codepoint) == ignored_codepoints.end()) {
 					    end = next;
 				    }

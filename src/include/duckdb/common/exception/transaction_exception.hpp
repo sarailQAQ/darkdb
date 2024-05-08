@@ -16,8 +16,8 @@ class TransactionException : public Exception {
 public:
 	DUCKDB_API explicit TransactionException(const string &msg);
 
-	template <typename... ARGS>
-	explicit TransactionException(const string &msg, ARGS... params)
+	template <typename... Args>
+	explicit TransactionException(const string &msg, Args... params)
 	    : TransactionException(ConstructMessage(msg, params...)) {
 	}
 };

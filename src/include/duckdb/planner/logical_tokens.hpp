@@ -50,7 +50,6 @@ class LogicalMaterializedCTE;
 class LogicalSetOperation;
 class LogicalSample;
 class LogicalSimple;
-class LogicalVacuum;
 class LogicalSet;
 class LogicalReset;
 class LogicalTopN;

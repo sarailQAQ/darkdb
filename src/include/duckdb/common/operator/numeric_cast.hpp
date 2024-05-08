@@ -75,7 +75,7 @@ bool TryCastWithOverflowCheckFloat(SRC value, T &result, SRC min, SRC max) {
 		return false;
 	}
 	// PG FLOAT => INT casts use statistical rounding.
-	result = static_cast<T>(std::nearbyint(value));
+	result = std::nearbyint(value);
 	return true;
 }
 
@@ -182,7 +182,7 @@ bool TryCastWithOverflowCheck(double input, float &result) {
 		return true;
 	}
 	auto res = float(input);
-	if (!Value::FloatIsFinite(res)) {
+	if (!Value::FloatIsFinite(input)) {
 		return false;
 	}
 	result = res;

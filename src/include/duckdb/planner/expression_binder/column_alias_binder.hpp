@@ -13,19 +13,20 @@
 
 namespace duckdb {
 
+class BoundSelectNode;
 class ColumnRefExpression;
-struct SelectBindState;
 
 //! A helper binder for WhereBinder and HavingBinder which support alias as a columnref.
 class ColumnAliasBinder {
 public:
-	explicit ColumnAliasBinder(SelectBindState &bind_state);
+	ColumnAliasBinder(BoundSelectNode &node, const case_insensitive_map_t<idx_t> &alias_map);
 
-	bool BindAlias(ExpressionBinder &enclosing_binder, unique_ptr<ParsedExpression> &expr_ptr, idx_t depth,
-	               bool root_expression, BindResult &result);
+	bool BindAlias(ExpressionBinder &enclosing_binder, ColumnRefExpression &expr, idx_t depth, bool root_expression,
+	               BindResult &result);
 
 private:
-	SelectBindState &bind_state;
+	BoundSelectNode &node;
+	const case_insensitive_map_t<idx_t> &alias_map;
 	unordered_set<idx_t> visited_select_indexes;
 };
 

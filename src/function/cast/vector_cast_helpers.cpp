@@ -39,26 +39,25 @@ static bool SkipToCloseQuotes(idx_t &pos, const char *buf, idx_t &len) {
 static bool SkipToClose(idx_t &idx, const char *buf, idx_t &len, idx_t &lvl, char close_bracket) {
 	idx++;
 
-	vector<char> brackets;
-	brackets.push_back(close_bracket);
 	while (idx < len) {
 		if (buf[idx] == '"' || buf[idx] == '\'') {
 			if (!SkipToCloseQuotes(idx, buf, len)) {
 				return false;
 			}
 		} else if (buf[idx] == '{') {
-			brackets.push_back('}');
+			if (!SkipToClose(idx, buf, len, lvl, '}')) {
+				return false;
+			}
 		} else if (buf[idx] == '[') {
-			brackets.push_back(']');
+			if (!SkipToClose(idx, buf, len, lvl, ']')) {
+				return false;
+			}
 			lvl++;
-		} else if (buf[idx] == brackets.back()) {
-			if (buf[idx] == ']') {
+		} else if (buf[idx] == close_bracket) {
+			if (close_bracket == ']') {
 				lvl--;
 			}
-			brackets.pop_back();
-			if (brackets.empty()) {
-				return true;
-			}
+			return true;
 		}
 		idx++;
 	}

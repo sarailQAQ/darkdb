@@ -5,7 +5,8 @@
 namespace duckdb {
 
 TupleDataLayout::TupleDataLayout()
-    : flag_width(0), data_width(0), aggr_width(0), row_width(0), all_constant(true), heap_size_offset(0) {
+    : flag_width(0), data_width(0), aggr_width(0), row_width(0), all_constant(true), heap_size_offset(0),
+      has_destructor(false) {
 }
 
 TupleDataLayout TupleDataLayout::Copy() const {
@@ -25,7 +26,7 @@ TupleDataLayout TupleDataLayout::Copy() const {
 	result.offsets = this->offsets;
 	result.all_constant = this->all_constant;
 	result.heap_size_offset = this->heap_size_offset;
-	result.aggr_destructor_idxs = this->aggr_destructor_idxs;
+	result.has_destructor = this->has_destructor;
 	return result;
 }
 
@@ -108,10 +109,11 @@ void TupleDataLayout::Initialize(vector<LogicalType> types_p, Aggregates aggrega
 	}
 #endif
 
-	for (idx_t aggr_idx = 0; aggr_idx < aggregates.size(); aggr_idx++) {
-		const auto &aggr = aggregates[aggr_idx];
+	has_destructor = false;
+	for (auto &aggr : GetAggregates()) {
 		if (aggr.function.destructor) {
-			aggr_destructor_idxs.push_back(aggr_idx);
+			has_destructor = true;
+			break;
 		}
 	}
 }

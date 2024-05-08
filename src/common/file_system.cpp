@@ -12,7 +12,6 @@
 #include "duckdb/main/database.hpp"
 #include "duckdb/main/extension_helper.hpp"
 #include "duckdb/common/windows_util.hpp"
-#include "duckdb/common/operator/multiply.hpp"
 
 #include <cstdint>
 #include <cstdio>
@@ -22,7 +21,6 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -46,41 +44,6 @@ extern "C" WINBASEAPI BOOL WINAPI GetPhysicallyInstalledSystemMemory(PULONGLONG)
 #endif
 
 namespace duckdb {
-
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_READ;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_WRITE;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_DIRECT_IO;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_FILE_CREATE;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_FILE_CREATE_NEW;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_APPEND;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_PRIVATE;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
-constexpr FileOpenFlags FileFlags::FILE_FLAGS_PARALLEL_ACCESS;
-
-void FileOpenFlags::Verify() {
-#ifdef DEBUG
-	bool is_read = flags & FileOpenFlags::FILE_FLAGS_READ;
-	bool is_write = flags & FileOpenFlags::FILE_FLAGS_WRITE;
-	bool is_create =
-	    (flags & FileOpenFlags::FILE_FLAGS_FILE_CREATE) || (flags & FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW);
-	bool is_private = (flags & FileOpenFlags::FILE_FLAGS_PRIVATE);
-	bool null_if_not_exists = flags & FileOpenFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS;
-
-	// require either READ or WRITE (or both)
-	D_ASSERT(is_read || is_write);
-	// CREATE/Append flags require writing
-	D_ASSERT(is_write || !(flags & FileOpenFlags::FILE_FLAGS_APPEND));
-	D_ASSERT(is_write || !(flags & FileOpenFlags::FILE_FLAGS_FILE_CREATE));
-	D_ASSERT(is_write || !(flags & FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW));
-	// cannot combine CREATE and CREATE_NEW flags
-	D_ASSERT(!(flags & FileOpenFlags::FILE_FLAGS_FILE_CREATE && flags & FileOpenFlags::FILE_FLAGS_FILE_CREATE_NEW));
-
-	// For is_private can only be set along with a create flag
-	D_ASSERT(!is_private || is_create);
-	// FILE_FLAGS_NULL_IF_NOT_EXISTS cannot be combined with CREATE/CREATE_NEW
-	D_ASSERT(!(null_if_not_exists && is_create));
-#endif
-}
 
 FileSystem::~FileSystem() {
 }
@@ -119,7 +82,7 @@ void FileSystem::SetWorkingDirectory(const string &path) {
 	}
 }
 
-optional_idx FileSystem::GetAvailableMemory() {
+idx_t FileSystem::GetAvailableMemory() {
 	errno = 0;
 
 #ifdef __MVS__
@@ -130,27 +93,9 @@ optional_idx FileSystem::GetAvailableMemory() {
 	idx_t max_memory = MinValue<idx_t>((idx_t)sysconf(_SC_PHYS_PAGES) * (idx_t)sysconf(_SC_PAGESIZE), UINTPTR_MAX);
 #endif
 	if (errno != 0) {
-		return optional_idx();
+		return DConstants::INVALID_INDEX;
 	}
 	return max_memory;
-}
-
-optional_idx FileSystem::GetAvailableDiskSpace(const string &path) {
-	struct statvfs vfs;
-
-	auto ret = statvfs(path.c_str(), &vfs);
-	if (ret == -1) {
-		return optional_idx();
-	}
-	auto block_size = vfs.f_frsize;
-	// These are the blocks available for creating new files or extending existing ones
-	auto available_blocks = vfs.f_bfree;
-	idx_t available_disk_space = DConstants::INVALID_INDEX;
-	if (!TryMultiplyOperator::Operation(static_cast<idx_t>(block_size), static_cast<idx_t>(available_blocks),
-	                                    available_disk_space)) {
-		return optional_idx();
-	}
-	return available_disk_space;
 }
 
 string FileSystem::GetWorkingDirectory() {
@@ -238,7 +183,7 @@ void FileSystem::SetWorkingDirectory(const string &path) {
 	}
 }
 
-optional_idx FileSystem::GetAvailableMemory() {
+idx_t FileSystem::GetAvailableMemory() {
 	ULONGLONG available_memory_kb;
 	if (GetPhysicallyInstalledSystemMemory(&available_memory_kb)) {
 		return MinValue<idx_t>(available_memory_kb * 1000, UINTPTR_MAX);
@@ -250,19 +195,7 @@ optional_idx FileSystem::GetAvailableMemory() {
 	if (GlobalMemoryStatusEx(&mem_state)) {
 		return MinValue<idx_t>(mem_state.ullTotalPhys, UINTPTR_MAX);
 	}
-	return optional_idx();
-}
-
-optional_idx FileSystem::GetAvailableDiskSpace(const string &path) {
-	ULARGE_INTEGER available_bytes, total_bytes, free_bytes;
-
-	auto unicode_path = WindowsUtil::UTF8ToUnicode(path.c_str());
-	if (!GetDiskFreeSpaceExW(unicode_path.c_str(), &available_bytes, &total_bytes, &free_bytes)) {
-		return optional_idx();
-	}
-	(void)total_bytes;
-	(void)free_bytes;
-	return NumericCast<idx_t>(available_bytes.QuadPart);
+	return DConstants::INVALID_INDEX;
 }
 
 string FileSystem::GetWorkingDirectory() {
@@ -353,17 +286,13 @@ string FileSystem::ExpandPath(const string &path) {
 }
 
 // LCOV_EXCL_START
-unique_ptr<FileHandle> FileSystem::OpenFile(const string &path, FileOpenFlags flags, optional_ptr<FileOpener> opener) {
+unique_ptr<FileHandle> FileSystem::OpenFile(const string &path, uint8_t flags, FileLockType lock,
+                                            FileCompressionType compression, FileOpener *opener) {
 	throw NotImplementedException("%s: OpenFile is not implemented!", GetName());
 }
 
 void FileSystem::Read(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
 	throw NotImplementedException("%s: Read (with location) is not implemented!", GetName());
-}
-
-bool FileSystem::Trim(FileHandle &handle, idx_t offset_bytes, idx_t length_bytes) {
-	// This is not a required method. Derived FileSystems may optionally override/implement.
-	return false;
 }
 
 void FileSystem::Write(FileHandle &handle, void *buffer, int64_t nr_bytes, idx_t location) {
@@ -394,15 +323,15 @@ void FileSystem::Truncate(FileHandle &handle, int64_t new_size) {
 	throw NotImplementedException("%s: Truncate is not implemented!", GetName());
 }
 
-bool FileSystem::DirectoryExists(const string &directory, optional_ptr<FileOpener> opener) {
+bool FileSystem::DirectoryExists(const string &directory) {
 	throw NotImplementedException("%s: DirectoryExists is not implemented!", GetName());
 }
 
-void FileSystem::CreateDirectory(const string &directory, optional_ptr<FileOpener> opener) {
+void FileSystem::CreateDirectory(const string &directory) {
 	throw NotImplementedException("%s: CreateDirectory is not implemented!", GetName());
 }
 
-void FileSystem::RemoveDirectory(const string &directory, optional_ptr<FileOpener> opener) {
+void FileSystem::RemoveDirectory(const string &directory) {
 	throw NotImplementedException("%s: RemoveDirectory is not implemented!", GetName());
 }
 
@@ -411,19 +340,19 @@ bool FileSystem::ListFiles(const string &directory, const std::function<void(con
 	throw NotImplementedException("%s: ListFiles is not implemented!", GetName());
 }
 
-void FileSystem::MoveFile(const string &source, const string &target, optional_ptr<FileOpener> opener) {
+void FileSystem::MoveFile(const string &source, const string &target) {
 	throw NotImplementedException("%s: MoveFile is not implemented!", GetName());
 }
 
-bool FileSystem::FileExists(const string &filename, optional_ptr<FileOpener> opener) {
+bool FileSystem::FileExists(const string &filename) {
 	throw NotImplementedException("%s: FileExists is not implemented!", GetName());
 }
 
-bool FileSystem::IsPipe(const string &filename, optional_ptr<FileOpener> opener) {
+bool FileSystem::IsPipe(const string &filename) {
 	return false;
 }
 
-void FileSystem::RemoveFile(const string &filename, optional_ptr<FileOpener> opener) {
+void FileSystem::RemoveFile(const string &filename) {
 	throw NotImplementedException("%s: RemoveFile is not implemented!", GetName());
 }
 
@@ -529,10 +458,6 @@ bool FileSystem::CanSeek() {
 	throw NotImplementedException("%s: CanSeek is not implemented!", GetName());
 }
 
-bool FileSystem::IsManuallySet() {
-	return false;
-}
-
 unique_ptr<FileHandle> FileSystem::OpenCompressedFile(unique_ptr<FileHandle> handle, bool write) {
 	throw NotImplementedException("%s: OpenCompressedFile is not implemented!", GetName());
 }
@@ -549,23 +474,19 @@ FileHandle::~FileHandle() {
 }
 
 int64_t FileHandle::Read(void *buffer, idx_t nr_bytes) {
-	return file_system.Read(*this, buffer, UnsafeNumericCast<int64_t>(nr_bytes));
-}
-
-bool FileHandle::Trim(idx_t offset_bytes, idx_t length_bytes) {
-	return file_system.Trim(*this, offset_bytes, length_bytes);
+	return file_system.Read(*this, buffer, nr_bytes);
 }
 
 int64_t FileHandle::Write(void *buffer, idx_t nr_bytes) {
-	return file_system.Write(*this, buffer, UnsafeNumericCast<int64_t>(nr_bytes));
+	return file_system.Write(*this, buffer, nr_bytes);
 }
 
 void FileHandle::Read(void *buffer, idx_t nr_bytes, idx_t location) {
-	file_system.Read(*this, buffer, UnsafeNumericCast<int64_t>(nr_bytes), location);
+	file_system.Read(*this, buffer, nr_bytes, location);
 }
 
 void FileHandle::Write(void *buffer, idx_t nr_bytes, idx_t location) {
-	file_system.Write(*this, buffer, UnsafeNumericCast<int64_t>(nr_bytes), location);
+	file_system.Write(*this, buffer, nr_bytes, location);
 }
 
 void FileHandle::Seek(idx_t location) {
@@ -592,7 +513,7 @@ string FileHandle::ReadLine() {
 	string result;
 	char buffer[1];
 	while (true) {
-		auto tuples_read = UnsafeNumericCast<idx_t>(Read(buffer, 1));
+		idx_t tuples_read = Read(buffer, 1);
 		if (tuples_read == 0 || buffer[0] == '\n') {
 			return result;
 		}
@@ -607,7 +528,7 @@ bool FileHandle::OnDiskFile() {
 }
 
 idx_t FileHandle::GetFileSize() {
-	return NumericCast<idx_t>(file_system.GetFileSize(*this));
+	return file_system.GetFileSize(*this);
 }
 
 void FileHandle::Sync() {

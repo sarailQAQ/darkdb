@@ -16,7 +16,7 @@ namespace duckdb {
 
 struct CreatePragmaFunctionInfo : public CreateFunctionInfo {
 	DUCKDB_API explicit CreatePragmaFunctionInfo(PragmaFunction function);
-	DUCKDB_API CreatePragmaFunctionInfo(string name, PragmaFunctionSet functions);
+	DUCKDB_API CreatePragmaFunctionInfo(string name, PragmaFunctionSet functions_);
 
 	PragmaFunctionSet functions;
 

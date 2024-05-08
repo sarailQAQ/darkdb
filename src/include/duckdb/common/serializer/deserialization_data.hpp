@@ -23,7 +23,7 @@ struct DeserializationData {
 	stack<reference<DatabaseInstance>> databases;
 	stack<idx_t> enums;
 	stack<reference<bound_parameter_map_t>> parameter_data;
-	stack<const_reference<LogicalType>> types;
+	stack<reference<LogicalType>> types;
 
 	template <class T>
 	void Set(T entry) = delete;
@@ -112,7 +112,7 @@ inline void DeserializationData::Unset<CatalogType>() {
 
 template <>
 inline void DeserializationData::Set(ClientContext &context) {
-	contexts.emplace(context);
+	contexts.push(context);
 }
 
 template <>
@@ -129,7 +129,7 @@ inline void DeserializationData::Unset<ClientContext>() {
 
 template <>
 inline void DeserializationData::Set(DatabaseInstance &db) {
-	databases.emplace(db);
+	databases.push(db);
 }
 
 template <>
@@ -146,7 +146,7 @@ inline void DeserializationData::Unset<DatabaseInstance>() {
 
 template <>
 inline void DeserializationData::Set(bound_parameter_map_t &context) {
-	parameter_data.emplace(context);
+	parameter_data.push(context);
 }
 
 template <>
@@ -167,24 +167,13 @@ inline void DeserializationData::Set(LogicalType &type) {
 }
 
 template <>
-inline void DeserializationData::Unset<LogicalType>() {
-	AssertNotEmpty(types);
-	types.pop();
-}
-
-template <>
-inline void DeserializationData::Set(const LogicalType &type) {
-	types.emplace(type);
-}
-
-template <>
-inline const LogicalType &DeserializationData::Get() {
+inline LogicalType &DeserializationData::Get() {
 	AssertNotEmpty(types);
 	return types.top();
 }
 
 template <>
-inline void DeserializationData::Unset<const LogicalType>() {
+inline void DeserializationData::Unset<LogicalType>() {
 	AssertNotEmpty(types);
 	types.pop();
 }

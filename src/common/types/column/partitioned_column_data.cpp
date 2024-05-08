@@ -9,7 +9,7 @@ namespace duckdb {
 PartitionedColumnData::PartitionedColumnData(PartitionedColumnDataType type_p, ClientContext &context_p,
                                              vector<LogicalType> types_p)
     : type(type_p), context(context_p), types(std::move(types_p)),
-      allocators(make_shared_ptr<PartitionColumnDataAllocators>()) {
+      allocators(make_shared<PartitionColumnDataAllocators>()) {
 }
 
 PartitionedColumnData::PartitionedColumnData(const PartitionedColumnData &other)
@@ -20,6 +20,8 @@ unique_ptr<PartitionedColumnData> PartitionedColumnData::CreateShared() {
 	switch (type) {
 	case PartitionedColumnDataType::RADIX:
 		return make_uniq<RadixPartitionedColumnData>(Cast<RadixPartitionedColumnData>());
+	case PartitionedColumnDataType::HIVE:
+		return make_uniq<HivePartitionedColumnData>(Cast<HivePartitionedColumnData>());
 	default:
 		throw NotImplementedException("CreateShared for this type of PartitionedColumnData");
 	}
@@ -134,9 +136,6 @@ void PartitionedColumnData::Append(PartitionedColumnDataAppendState &state, Data
 
 void PartitionedColumnData::FlushAppendState(PartitionedColumnDataAppendState &state) {
 	for (idx_t i = 0; i < state.partition_buffers.size(); i++) {
-		if (!state.partition_buffers[i]) {
-			continue;
-		}
 		auto &partition_buffer = *state.partition_buffers[i];
 		if (partition_buffer.size() > 0) {
 			partitions[i]->Append(partition_buffer);
@@ -156,14 +155,7 @@ void PartitionedColumnData::Combine(PartitionedColumnData &other) {
 		D_ASSERT(partitions.size() == other.partitions.size());
 		// Combine the append state's partitions into this PartitionedColumnData
 		for (idx_t i = 0; i < other.partitions.size(); i++) {
-			if (!other.partitions[i]) {
-				continue;
-			}
-			if (!partitions[i]) {
-				partitions[i] = std::move(other.partitions[i]);
-			} else {
-				partitions[i]->Combine(*other.partitions[i]);
-			}
+			partitions[i]->Combine(*other.partitions[i]);
 		}
 	}
 }
@@ -173,7 +165,7 @@ vector<unique_ptr<ColumnDataCollection>> &PartitionedColumnData::GetPartitions()
 }
 
 void PartitionedColumnData::CreateAllocator() {
-	allocators->allocators.emplace_back(make_shared_ptr<ColumnDataAllocator>(BufferManager::GetBufferManager(context)));
+	allocators->allocators.emplace_back(make_shared<ColumnDataAllocator>(BufferManager::GetBufferManager(context)));
 	allocators->allocators.back()->MakeShared();
 }
 

@@ -8,10 +8,21 @@
 
 #pragma once
 
+#include "duckdb/parser/parsed_data/copy_info.hpp"
+#include "duckdb/parser/parsed_data/exported_table_data.hpp"
 #include "duckdb/planner/logical_operator.hpp"
-#include "duckdb/parser/parsed_data/copy_database_info.hpp"
+#include "duckdb/function/copy_function.hpp"
 
 namespace duckdb {
+
+struct CopyDatabaseInfo {
+	CopyDatabaseInfo(Catalog &from_database, Catalog &to_database);
+	~CopyDatabaseInfo();
+
+	Catalog &from_database;
+	Catalog &to_database;
+	vector<unique_ptr<CreateInfo>> entries;
+};
 
 class LogicalCopyDatabase : public LogicalOperator {
 public:
@@ -29,9 +40,6 @@ public:
 
 protected:
 	void ResolveTypes() override;
-
-private:
-	explicit LogicalCopyDatabase(unique_ptr<ParseInfo> info_p);
 };
 
 } // namespace duckdb

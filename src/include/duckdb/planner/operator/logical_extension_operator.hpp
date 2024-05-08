@@ -22,11 +22,11 @@ public:
 public:
 	LogicalExtensionOperator() : LogicalOperator(LogicalOperatorType::LOGICAL_EXTENSION_OPERATOR) {
 	}
-	explicit LogicalExtensionOperator(vector<unique_ptr<Expression>> expressions)
+	LogicalExtensionOperator(vector<unique_ptr<Expression>> expressions)
 	    : LogicalOperator(LogicalOperatorType::LOGICAL_EXTENSION_OPERATOR, std::move(expressions)) {
 	}
 
-	void Serialize(Serializer &serializer) const override;
+	virtual void Serialize(Serializer &serializer) const override;
 	static unique_ptr<LogicalOperator> Deserialize(Deserializer &deserializer);
 
 	virtual unique_ptr<PhysicalOperator> CreatePlan(ClientContext &context, PhysicalPlanGenerator &generator) = 0;

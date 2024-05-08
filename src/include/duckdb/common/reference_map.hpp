@@ -29,8 +29,8 @@ struct ReferenceEquality {
 	}
 };
 
-template <typename T, typename TGT>
-using reference_map_t = unordered_map<reference<T>, TGT, ReferenceHashFunction<T>, ReferenceEquality<T>>;
+	template <typename T, typename TGT>
+	using reference_map_t = unordered_map<reference<T>, TGT, ReferenceHashFunction<T>, ReferenceEquality<T>>;
 
 template <typename T>
 using reference_set_t = unordered_set<reference<T>, ReferenceHashFunction<T>, ReferenceEquality<T>>;

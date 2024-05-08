@@ -44,7 +44,7 @@ private:
 
 struct DistinctAggregateData {
 public:
-	explicit DistinctAggregateData(const DistinctAggregateCollectionInfo &info);
+	DistinctAggregateData(const DistinctAggregateCollectionInfo &info);
 	DistinctAggregateData(const DistinctAggregateCollectionInfo &info, const GroupingSet &groups,
 	                      const vector<unique_ptr<Expression>> *group_expressions);
 	//! The data used by the hashtables

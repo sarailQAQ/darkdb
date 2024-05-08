@@ -85,7 +85,6 @@ protected:
 
 public:
 	static string OnConflictActionToString(OnConflictAction action);
-
 	string ToString() const override;
 	unique_ptr<SQLStatement> Copy() const override;
 

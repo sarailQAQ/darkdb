@@ -15,7 +15,7 @@ class PartialBlockManager;
 
 class OptimisticDataWriter {
 public:
-	explicit OptimisticDataWriter(DataTable &table);
+	OptimisticDataWriter(DataTable &table);
 	OptimisticDataWriter(DataTable &table, OptimisticDataWriter &parent);
 	~OptimisticDataWriter();
 

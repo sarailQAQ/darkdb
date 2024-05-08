@@ -43,7 +43,7 @@ struct SelectionVector {
 	explicit SelectionVector(buffer_ptr<SelectionData> data) {
 		Initialize(std::move(data));
 	}
-	SelectionVector &operator=(SelectionVector &&other) noexcept {
+	SelectionVector &operator=(SelectionVector &&other) {
 		sel_vector = other.sel_vector;
 		other.sel_vector = nullptr;
 		selection_data = std::move(other.selection_data);
@@ -71,7 +71,7 @@ public:
 		sel_vector = sel;
 	}
 	void Initialize(idx_t count = STANDARD_VECTOR_SIZE) {
-		selection_data = make_shared_ptr<SelectionData>(count);
+		selection_data = make_shared<SelectionData>(count);
 		sel_vector = selection_data->owned_data.get();
 	}
 	void Initialize(buffer_ptr<SelectionData> data) {
@@ -83,24 +83,24 @@ public:
 		sel_vector = other.sel_vector;
 	}
 
-	inline void set_index(idx_t idx, idx_t loc) { // NOLINT: allow casing for legacy reasons
+	inline void set_index(idx_t idx, idx_t loc) {
 		sel_vector[idx] = UnsafeNumericCast<sel_t>(loc);
 	}
-	inline void swap(idx_t i, idx_t j) { // NOLINT: allow casing for legacy reasons
+	inline void swap(idx_t i, idx_t j) {
 		sel_t tmp = sel_vector[i];
 		sel_vector[i] = sel_vector[j];
 		sel_vector[j] = tmp;
 	}
-	inline idx_t get_index(idx_t idx) const { // NOLINT: allow casing for legacy reasons
+	inline idx_t get_index(idx_t idx) const {
 		return sel_vector ? sel_vector[idx] : idx;
 	}
-	sel_t *data() { // NOLINT: allow casing for legacy reasons
+	sel_t *data() {
 		return sel_vector;
 	}
-	const sel_t *data() const { // NOLINT: allow casing for legacy reasons
+	const sel_t *data() const {
 		return sel_vector;
 	}
-	buffer_ptr<SelectionData> sel_data() { // NOLINT: allow casing for legacy reasons
+	buffer_ptr<SelectionData> sel_data() {
 		return selection_data;
 	}
 	buffer_ptr<SelectionData> Slice(const SelectionVector &sel, idx_t count) const;
@@ -119,7 +119,7 @@ private:
 
 class OptionalSelection {
 public:
-	explicit OptionalSelection(SelectionVector *sel_p) {
+	explicit inline OptionalSelection(SelectionVector *sel_p) {
 		Initialize(sel_p);
 	}
 	void Initialize(SelectionVector *sel_p) {
@@ -130,7 +130,7 @@ public:
 		}
 	}
 
-	inline operator SelectionVector *() { // NOLINT: allow implicit conversion to SelectionVector
+	inline operator SelectionVector *() {
 		return sel;
 	}
 
@@ -169,10 +169,10 @@ public:
 	bool Initialized() const {
 		return initialized;
 	}
-	void Initialize(idx_t new_size) {
+	void Initialize(idx_t size) {
 		D_ASSERT(!initialized);
-		this->size = new_size;
-		sel_vec.Initialize(new_size);
+		this->size = size;
+		sel_vec.Initialize(size);
 		internal_opt_selvec.Initialize(&sel_vec);
 		initialized = true;
 	}

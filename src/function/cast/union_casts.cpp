@@ -305,24 +305,28 @@ static bool UnionToVarcharCast(Vector &source, Vector &result, idx_t count, Cast
 	UnionToUnionCast(source, varchar_union, count, parameters);
 
 	// now construct the actual varchar vector
-	// varchar_union.Flatten(count);
-	auto &tag_vector = UnionVector::GetTags(varchar_union);
-	UnifiedVectorFormat tag_format;
-	tag_vector.ToUnifiedFormat(count, tag_format);
+	varchar_union.Flatten(count);
+	auto &tag_vector = UnionVector::GetTags(source);
+	auto tag_vector_type = tag_vector.GetVectorType();
+	if (tag_vector_type != VectorType::CONSTANT_VECTOR && tag_vector_type != VectorType::FLAT_VECTOR) {
+		tag_vector.Flatten(count);
+	}
 
+	auto tags = FlatVector::GetData<union_tag_t>(tag_vector);
+
+	auto &validity = FlatVector::Validity(varchar_union);
 	auto result_data = FlatVector::GetData<string_t>(result);
 
 	for (idx_t i = 0; i < count; i++) {
-		auto tag_idx = tag_format.sel->get_index(i);
-		if (!tag_format.validity.RowIsValid(tag_idx)) {
+		if (!validity.RowIsValid(i)) {
 			FlatVector::SetNull(result, i, true);
 			continue;
 		}
 
-		auto tag = UnifiedVectorFormat::GetData<union_tag_t>(tag_format)[tag_idx];
-		auto &member = UnionVector::GetMember(varchar_union, tag);
+		auto &member = UnionVector::GetMember(varchar_union, tags[i]);
 		UnifiedVectorFormat member_vdata;
 		member.ToUnifiedFormat(count, member_vdata);
+
 		auto mapped_idx = member_vdata.sel->get_index(i);
 		auto member_valid = member_vdata.validity.RowIsValid(mapped_idx);
 		if (member_valid) {

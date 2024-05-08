@@ -36,7 +36,7 @@ class StandardBufferManager : public BufferManager {
 
 public:
 	StandardBufferManager(DatabaseInstance &db, string temp_directory);
-	~StandardBufferManager() override;
+	virtual ~StandardBufferManager();
 
 public:
 	static unique_ptr<StandardBufferManager> CreateBufferManager(DatabaseInstance &db, string temp_directory);
@@ -46,44 +46,41 @@ public:
 	//! Registers an in-memory buffer that cannot be unloaded until it is destroyed
 	//! This buffer can be small (smaller than BLOCK_SIZE)
 	//! Unpin and pin are nops on this block of memory
-	shared_ptr<BlockHandle> RegisterSmallMemory(idx_t block_size) final;
+	shared_ptr<BlockHandle> RegisterSmallMemory(idx_t block_size) final override;
 
-	idx_t GetUsedMemory() const final;
-	idx_t GetMaxMemory() const final;
-	idx_t GetUsedSwap() final;
-	optional_idx GetMaxSwap() const final;
+	idx_t GetUsedMemory() const final override;
+	idx_t GetMaxMemory() const final override;
 
 	//! Allocate an in-memory buffer with a single pin.
 	//! The allocated memory is released when the buffer handle is destroyed.
 	DUCKDB_API BufferHandle Allocate(MemoryTag tag, idx_t block_size, bool can_destroy = true,
-	                                 shared_ptr<BlockHandle> *block = nullptr) final;
+	                                 shared_ptr<BlockHandle> *block = nullptr) final override;
 
 	//! Reallocate an in-memory buffer that is pinned.
-	void ReAllocate(shared_ptr<BlockHandle> &handle, idx_t block_size) final;
+	void ReAllocate(shared_ptr<BlockHandle> &handle, idx_t block_size) final override;
 
-	BufferHandle Pin(shared_ptr<BlockHandle> &handle) final;
-	void Unpin(shared_ptr<BlockHandle> &handle) final;
+	BufferHandle Pin(shared_ptr<BlockHandle> &handle) final override;
+	void Unpin(shared_ptr<BlockHandle> &handle) final override;
 
 	//! Set a new memory limit to the buffer manager, throws an exception if the new limit is too low and not enough
 	//! blocks can be evicted
-	void SetMemoryLimit(idx_t limit = (idx_t)-1) final;
-	void SetSwapLimit(optional_idx limit = optional_idx()) final;
+	void SetLimit(idx_t limit = (idx_t)-1) final override;
 
 	//! Returns informaton about memory usage
 	vector<MemoryInformation> GetMemoryUsageInfo() const override;
 
 	//! Returns a list of all temporary files
-	vector<TemporaryFileInformation> GetTemporaryFiles() final;
+	vector<TemporaryFileInformation> GetTemporaryFiles() final override;
 
-	const string &GetTemporaryDirectory() const final {
-		return temporary_directory.path;
+	const string &GetTemporaryDirectory() final override {
+		return temp_directory;
 	}
 
-	void SetTemporaryDirectory(const string &new_dir) final;
+	void SetTemporaryDirectory(const string &new_dir) final override;
 
-	DUCKDB_API Allocator &GetBufferAllocator() final;
+	DUCKDB_API Allocator &GetBufferAllocator() final override;
 
-	DatabaseInstance &GetDatabase() override {
+	DatabaseInstance &GetDatabase() final override {
 		return db;
 	}
 
@@ -91,9 +88,9 @@ public:
 	unique_ptr<FileBuffer> ConstructManagedBuffer(idx_t size, unique_ptr<FileBuffer> &&source,
 	                                              FileBufferType type = FileBufferType::MANAGED_BUFFER) override;
 
-	DUCKDB_API void ReserveMemory(idx_t size) final;
-	DUCKDB_API void FreeReservedMemory(idx_t size) final;
-	bool HasTemporaryDirectory() const final;
+	DUCKDB_API void ReserveMemory(idx_t size) final override;
+	DUCKDB_API void FreeReservedMemory(idx_t size) final override;
+	bool HasTemporaryDirectory() const final override;
 
 protected:
 	//! Helper
@@ -109,24 +106,24 @@ protected:
 	shared_ptr<BlockHandle> RegisterMemory(MemoryTag tag, idx_t block_size, bool can_destroy);
 
 	//! Garbage collect eviction queue
-	void PurgeQueue() final;
+	void PurgeQueue() final override;
 
-	BufferPool &GetBufferPool() const final;
-	TemporaryMemoryManager &GetTemporaryMemoryManager() final;
+	BufferPool &GetBufferPool() const final override;
+	TemporaryMemoryManager &GetTemporaryMemoryManager() final override;
 
 	//! Write a temporary buffer to disk
-	void WriteTemporaryBuffer(MemoryTag tag, block_id_t block_id, FileBuffer &buffer) final;
+	void WriteTemporaryBuffer(MemoryTag tag, block_id_t block_id, FileBuffer &buffer) final override;
 	//! Read a temporary buffer from disk
 	unique_ptr<FileBuffer> ReadTemporaryBuffer(MemoryTag tag, block_id_t id,
-	                                           unique_ptr<FileBuffer> buffer = nullptr) final;
+	                                           unique_ptr<FileBuffer> buffer = nullptr) final override;
 	//! Get the path of the temporary buffer
 	string GetTemporaryPath(block_id_t id);
 
-	void DeleteTemporaryFile(block_id_t id) final;
+	void DeleteTemporaryFile(block_id_t id) final override;
 
 	void RequireTemporaryDirectory();
 
-	void AddToEvictionQueue(shared_ptr<BlockHandle> &handle) final;
+	void AddToEvictionQueue(shared_ptr<BlockHandle> &handle) final override;
 
 	const char *InMemoryWarning();
 
@@ -140,26 +137,16 @@ protected:
 	void VerifyZeroReaders(shared_ptr<BlockHandle> &handle);
 
 protected:
-	// These are stored here because temp_directory creation is lazy
-	// so we need to store information related to the temporary directory before it's created
-	struct TemporaryFileData {
-		//! The directory name where temporary files are stored
-		string path;
-		//! Lock for creating the temp handle (marked mutable so 'GetMaxSwap' can be const)
-		mutable mutex lock;
-		//! Handle for the temporary directory
-		unique_ptr<TemporaryDirectoryHandle> handle;
-		//! The maximum swap space that can be used
-		optional_idx maximum_swap_space = optional_idx();
-	};
-
-protected:
 	//! The database instance
 	DatabaseInstance &db;
 	//! The buffer pool
 	BufferPool &buffer_pool;
-	//! The variables related to temporary file management
-	TemporaryFileData temporary_directory;
+	//! The directory name where temporary files are stored
+	string temp_directory;
+	//! Lock for creating the temp handle
+	mutex temp_handle_lock;
+	//! Handle for the temporary directory
+	unique_ptr<TemporaryDirectoryHandle> temp_directory_handle;
 	//! The temporary id used for managed buffers
 	atomic<block_id_t> temporary_id;
 	//! Allocator associated with the buffer manager, that passes all allocations through this buffer manager

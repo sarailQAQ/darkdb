@@ -42,12 +42,10 @@ public:
 	//! once.
 	bool Done();
 
-	void ResetBufferManager();
 	string GetFilePath();
 
 	ClientContext &context;
 	idx_t skip_rows = 0;
-	bool sniffing = false;
 
 private:
 	//! Reads next buffer in reference to cached_buffers.front()
@@ -71,7 +69,6 @@ private:
 	//! If the file_handle used seek
 	bool has_seeked = false;
 	unordered_set<idx_t> reset_when_possible;
-	bool is_pipe;
 };
 
 } // namespace duckdb

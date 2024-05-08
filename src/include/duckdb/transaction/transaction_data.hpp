@@ -16,7 +16,7 @@ class DuckTransaction;
 class Transaction;
 
 struct TransactionData {
-	TransactionData(DuckTransaction &transaction_p); // NOLINT: allow implicit conversion
+	TransactionData(DuckTransaction &transaction_p);
 	TransactionData(transaction_t transaction_id_p, transaction_t start_time_p);
 
 	optional_ptr<DuckTransaction> transaction;

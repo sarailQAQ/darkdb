@@ -29,17 +29,15 @@ string ForeignKeyConstraint::ToString() const {
 			base += ".";
 		}
 		base += info.table;
-		if (!pk_columns.empty()) {
-			base += "(";
+		base += "(";
 
-			for (idx_t i = 0; i < pk_columns.size(); i++) {
-				if (i > 0) {
-					base += ", ";
-				}
-				base += KeywordHelper::WriteOptionallyQuoted(pk_columns[i]);
+		for (idx_t i = 0; i < pk_columns.size(); i++) {
+			if (i > 0) {
+				base += ", ";
 			}
-			base += ")";
+			base += KeywordHelper::WriteOptionallyQuoted(pk_columns[i]);
 		}
+		base += ")";
 
 		return base;
 	}

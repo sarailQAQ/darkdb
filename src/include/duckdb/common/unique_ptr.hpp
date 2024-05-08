@@ -9,56 +9,10 @@
 
 namespace duckdb {
 
-template <class DATA_TYPE, class DELETER = std::default_delete<DATA_TYPE>, bool SAFE = true>
-class unique_ptr : public std::unique_ptr<DATA_TYPE, DELETER> { // NOLINT: naming
+template <class _Tp, class _Dp = std::default_delete<_Tp>, bool SAFE = true>
+class unique_ptr : public std::unique_ptr<_Tp, _Dp> {
 public:
-	using original = std::unique_ptr<DATA_TYPE, DELETER>;
-	using original::original; // NOLINT
-	using pointer = typename original::pointer;
-
-private:
-	static inline void AssertNotNull(const bool null) {
-#if defined(DUCKDB_DEBUG_NO_SAFETY) || defined(DUCKDB_CLANG_TIDY)
-		return;
-#else
-		if (DUCKDB_UNLIKELY(null)) {
-			throw duckdb::InternalException("Attempted to dereference unique_ptr that is NULL!");
-		}
-#endif
-	}
-
-public:
-	typename std::add_lvalue_reference<DATA_TYPE>::type operator*() const { // NOLINT: hiding on purpose
-		const auto ptr = original::get();
-		if (MemorySafety<SAFE>::ENABLED) {
-			AssertNotNull(!ptr);
-		}
-		return *ptr;
-	}
-
-	typename original::pointer operator->() const { // NOLINT: hiding on purpose
-		const auto ptr = original::get();
-		if (MemorySafety<SAFE>::ENABLED) {
-			AssertNotNull(!ptr);
-		}
-		return ptr;
-	}
-
-#ifdef DUCKDB_CLANG_TIDY
-	// This is necessary to tell clang-tidy that it reinitializes the variable after a move
-	[[clang::reinitializes]]
-#endif
-	inline void
-	reset(typename original::pointer ptr = typename original::pointer()) noexcept { // NOLINT: hiding on purpose
-		original::reset(ptr);
-	}
-};
-
-// FIXME: DELETER is defined, but we use std::default_delete???
-template <class DATA_TYPE, class DELETER, bool SAFE>
-class unique_ptr<DATA_TYPE[], DELETER, SAFE> : public std::unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>> {
-public:
-	using original = std::unique_ptr<DATA_TYPE[], std::default_delete<DATA_TYPE[]>>;
+	using original = std::unique_ptr<_Tp, _Dp>;
 	using original::original;
 
 private:
@@ -73,9 +27,53 @@ private:
 	}
 
 public:
-	typename std::add_lvalue_reference<DATA_TYPE>::type operator[](size_t __i) const { // NOLINT: hiding on purpose
+	typename std::add_lvalue_reference<_Tp>::type operator*() const {
 		const auto ptr = original::get();
-		if (MemorySafety<SAFE>::ENABLED) {
+		if (MemorySafety<SAFE>::enabled) {
+			AssertNotNull(!ptr);
+		}
+		return *ptr;
+	}
+
+	typename original::pointer operator->() const {
+		const auto ptr = original::get();
+		if (MemorySafety<SAFE>::enabled) {
+			AssertNotNull(!ptr);
+		}
+		return ptr;
+	}
+
+#ifdef DUCKDB_CLANG_TIDY
+	// This is necessary to tell clang-tidy that it reinitializes the variable after a move
+	[[clang::reinitializes]]
+#endif
+	inline void
+	reset(typename original::pointer ptr = typename original::pointer()) noexcept {
+		original::reset(ptr);
+	}
+};
+
+template <class _Tp, class _Dp, bool SAFE>
+class unique_ptr<_Tp[], _Dp, SAFE> : public std::unique_ptr<_Tp[], std::default_delete<_Tp[]>> {
+public:
+	using original = std::unique_ptr<_Tp[], std::default_delete<_Tp[]>>;
+	using original::original;
+
+private:
+	static inline void AssertNotNull(const bool null) {
+#if defined(DUCKDB_DEBUG_NO_SAFETY) || defined(DUCKDB_CLANG_TIDY)
+		return;
+#else
+		if (DUCKDB_UNLIKELY(null)) {
+			throw duckdb::InternalException("Attempted to dereference unique_ptr that is NULL!");
+		}
+#endif
+	}
+
+public:
+	typename std::add_lvalue_reference<_Tp>::type operator[](size_t __i) const {
+		const auto ptr = original::get();
+		if (MemorySafety<SAFE>::enabled) {
 			AssertNotNull(!ptr);
 		}
 		return ptr[__i];

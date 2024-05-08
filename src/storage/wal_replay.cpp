@@ -25,7 +25,6 @@
 #include "duckdb/common/checksum.hpp"
 #include "duckdb/execution/index/index_type_set.hpp"
 #include "duckdb/execution/index/art/art.hpp"
-#include "duckdb/storage/table/delete_state.hpp"
 
 namespace duckdb {
 
@@ -159,10 +158,10 @@ private:
 //===--------------------------------------------------------------------===//
 // Replay
 //===--------------------------------------------------------------------===//
-bool WriteAheadLog::Replay(AttachedDatabase &database, unique_ptr<FileHandle> handle) {
+bool WriteAheadLog::Replay(AttachedDatabase &database, string &path) {
 	Connection con(database.GetDatabase());
-	BufferedFileReader reader(FileSystem::Get(database), std::move(handle));
-	if (reader.Finished()) {
+	auto initial_source = make_uniq<BufferedFileReader>(FileSystem::Get(database), path.c_str());
+	if (initial_source->Finished()) {
 		// WAL is empty
 		return false;
 	}
@@ -175,10 +174,10 @@ bool WriteAheadLog::Replay(AttachedDatabase &database, unique_ptr<FileHandle> ha
 	try {
 		while (true) {
 			// read the current entry (deserialize only)
-			auto deserializer = WriteAheadLogDeserializer::Open(checkpoint_state, reader, true);
+			auto deserializer = WriteAheadLogDeserializer::Open(checkpoint_state, *initial_source, true);
 			if (deserializer.ReplayEntry()) {
 				// check if the file is exhausted
-				if (reader.Finished()) {
+				if (initial_source->Finished()) {
 					// we finished reading the file: break
 					break;
 				}
@@ -197,6 +196,7 @@ bool WriteAheadLog::Replay(AttachedDatabase &database, unique_ptr<FileHandle> ha
 		Printer::Print("Unknown Exception in WAL playback during initial read");
 		return false;
 	} // LCOV_EXCL_STOP
+	initial_source.reset();
 	if (checkpoint_state.checkpoint_id.IsValid()) {
 		// there is a checkpoint flag: check if we need to deserialize the WAL
 		auto &manager = database.GetStorageManager();
@@ -208,10 +208,8 @@ bool WriteAheadLog::Replay(AttachedDatabase &database, unique_ptr<FileHandle> ha
 	}
 
 	// we need to recover from the WAL: actually set up the replay state
+	BufferedFileReader reader(FileSystem::Get(database), path.c_str());
 	ReplayState state(database, *con.context);
-
-	// reset the reader - we are going to read the WAL from the beginning again
-	reader.Reset();
 
 	// replay the WAL
 	// note that everything is wrapped inside a try/catch block here
@@ -581,7 +579,7 @@ void WriteAheadLogDeserializer::ReplayCreateIndex() {
 	// create the index in the catalog
 	auto &table = catalog.GetEntry<TableCatalogEntry>(context, create_info->schema, info.table).Cast<DuckTableEntry>();
 	auto &index = catalog.CreateIndex(context, info)->Cast<DuckIndexEntry>();
-	index.info = make_shared_ptr<IndexDataTableInfo>(table.GetStorage().info, index.name);
+	index.info = make_shared<IndexDataTableInfo>(table.GetStorage().info, index.name);
 
 	// insert the parsed expressions into the index so that we can (de)serialize them during consecutive checkpoints
 	for (auto &parsed_expr : info.parsed_expressions) {
@@ -660,9 +658,7 @@ void WriteAheadLogDeserializer::ReplayInsert() {
 	}
 
 	// append to the current table
-	// we don't do any constraint verification here
-	vector<unique_ptr<BoundConstraint>> bound_constraints;
-	state.current_table->GetStorage().LocalAppend(*state.current_table, context, chunk, bound_constraints);
+	state.current_table->GetStorage().LocalAppend(*state.current_table, context, chunk);
 }
 
 void WriteAheadLogDeserializer::ReplayDelete() {
@@ -681,10 +677,9 @@ void WriteAheadLogDeserializer::ReplayDelete() {
 
 	auto source_ids = FlatVector::GetData<row_t>(chunk.data[0]);
 	// delete the tuples from the current table
-	TableDeleteState delete_state;
 	for (idx_t i = 0; i < chunk.size(); i++) {
 		row_ids[0] = source_ids[i];
-		state.current_table->GetStorage().Delete(delete_state, context, row_identifiers, 1);
+		state.current_table->GetStorage().Delete(*state.current_table, context, row_identifiers, 1);
 	}
 }
 

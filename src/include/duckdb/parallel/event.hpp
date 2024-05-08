@@ -16,7 +16,7 @@ namespace duckdb {
 class Executor;
 class Task;
 
-class Event : public enable_shared_from_this<Event> {
+class Event : public std::enable_shared_from_this<Event> {
 public:
 	explicit Event(Executor &executor);
 	virtual ~Event() = default;
@@ -59,7 +59,7 @@ public:
 	}
 	template <class TARGET>
 	const TARGET &Cast() const {
-		DynamicCastCheck<TARGET>(this);
+		D_ASSERT(dynamic_cast<const TARGET *>(this));
 		return reinterpret_cast<const TARGET &>(*this);
 	}
 

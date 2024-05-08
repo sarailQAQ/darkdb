@@ -24,10 +24,8 @@
 #include "duckdb/main/client_config.hpp"
 #include "duckdb/main/external_dependencies.hpp"
 #include "duckdb/common/error_data.hpp"
-#include "duckdb/common/enums/prepared_statement_mode.hpp"
 #include "duckdb/main/client_properties.hpp"
 #include "duckdb/main/client_context_state.hpp"
-#include "duckdb/main/settings.hpp"
 
 namespace duckdb {
 class Appender;
@@ -59,7 +57,7 @@ struct PendingQueryParameters {
 
 //! The ClientContext holds information relevant to the current client session
 //! during execution
-class ClientContext : public enable_shared_from_this<ClientContext> {
+class ClientContext : public std::enable_shared_from_this<ClientContext> {
 	friend class PendingQueryResult; // LockContext
 	friend class SimpleBufferedData; // ExecuteTaskInternal
 	friend class StreamQueryResult;  // LockContext
@@ -167,7 +165,7 @@ public:
 	                                                 bool requires_valid_transaction = true);
 
 	//! Equivalent to CURRENT_SETTING(key) SQL function.
-	DUCKDB_API SettingLookupResult TryGetCurrentSetting(const std::string &key, Value &result) const;
+	DUCKDB_API bool TryGetCurrentSetting(const std::string &key, Value &result);
 
 	//! Returns the parser options for this client context
 	DUCKDB_API ParserOptions GetParserOptions() const;
@@ -216,19 +214,14 @@ private:
 	                                                                   unique_ptr<SQLStatement> statement,
 	                                                                   shared_ptr<PreparedStatementData> &prepared,
 	                                                                   const PendingQueryParameters &parameters);
-	unique_ptr<PendingQueryResult> PendingPreparedStatement(ClientContextLock &lock, const string &query,
+	unique_ptr<PendingQueryResult> PendingPreparedStatement(ClientContextLock &lock,
 	                                                        shared_ptr<PreparedStatementData> statement_p,
 	                                                        const PendingQueryParameters &parameters);
-	unique_ptr<PendingQueryResult> PendingPreparedStatementInternal(ClientContextLock &lock,
-	                                                                shared_ptr<PreparedStatementData> statement_p,
-	                                                                const PendingQueryParameters &parameters);
-	void CheckIfPreparedStatementIsExecutable(PreparedStatementData &statement);
 
 	//! Internally prepare a SQL statement. Caller must hold the context_lock.
 	shared_ptr<PreparedStatementData>
 	CreatePreparedStatement(ClientContextLock &lock, const string &query, unique_ptr<SQLStatement> statement,
-	                        optional_ptr<case_insensitive_map_t<Value>> values = nullptr,
-	                        PreparedStatementMode mode = PreparedStatementMode::PREPARE_ONLY);
+	                        optional_ptr<case_insensitive_map_t<Value>> values = nullptr);
 	unique_ptr<PendingQueryResult> PendingStatementInternal(ClientContextLock &lock, const string &query,
 	                                                        unique_ptr<SQLStatement> statement,
 	                                                        const PendingQueryParameters &parameters);
@@ -258,15 +251,8 @@ private:
 	unique_ptr<PendingQueryResult> PendingQueryInternal(ClientContextLock &, const shared_ptr<Relation> &relation,
 	                                                    bool allow_stream_result);
 
-	void RebindPreparedStatement(ClientContextLock &lock, const string &query,
-	                             shared_ptr<PreparedStatementData> &prepared, const PendingQueryParameters &parameters);
-
 	template <class T>
 	unique_ptr<T> ErrorResult(ErrorData error, const string &query = string());
-
-	shared_ptr<PreparedStatementData>
-	CreatePreparedStatementInternal(ClientContextLock &lock, const string &query, unique_ptr<SQLStatement> statement,
-	                                optional_ptr<case_insensitive_map_t<Value>> values);
 
 private:
 	//! Lock on using the ClientContext in parallel
@@ -287,6 +273,24 @@ public:
 
 private:
 	lock_guard<mutex> client_guard;
+};
+
+class ClientContextWrapper {
+public:
+	explicit ClientContextWrapper(const shared_ptr<ClientContext> &context)
+	    : client_context(context) {
+
+	      };
+	shared_ptr<ClientContext> GetContext() {
+		auto actual_context = client_context.lock();
+		if (!actual_context) {
+			throw ConnectionException("Connection has already been closed");
+		}
+		return actual_context;
+	}
+
+private:
+	std::weak_ptr<ClientContext> client_context;
 };
 
 } // namespace duckdb

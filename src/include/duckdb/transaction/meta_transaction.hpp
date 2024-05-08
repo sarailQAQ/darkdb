@@ -58,9 +58,6 @@ public:
 	optional_ptr<AttachedDatabase> ModifiedDatabase() {
 		return modified_database;
 	}
-	const vector<reference<AttachedDatabase>> &OpenedTransactions() const {
-		return all_transactions;
-	}
 
 private:
 	//! Lock to prevent all_transactions and transactions from getting out of sync

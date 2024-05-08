@@ -51,9 +51,7 @@ public:
 //! should be seen as the method of secret creation. (e.g. user-provided config, env variables, auto-detect)
 class CreateSecretFunctionSet {
 public:
-	explicit CreateSecretFunctionSet(string &name) : name(name) {};
-
-public:
+	CreateSecretFunctionSet(string &name) : name(name) {};
 	bool ProviderExists(const string &provider_name);
 	void AddFunction(CreateSecretFunction &function, OnCreateConflict on_conflict);
 	CreateSecretFunction &GetFunction(const string &provider);
@@ -83,9 +81,8 @@ class BaseSecret {
 	friend class SecretManager;
 
 public:
-	BaseSecret(vector<string> prefix_paths_p, string type_p, string provider_p, string name_p)
-	    : prefix_paths(std::move(prefix_paths_p)), type(std::move(type_p)), provider(std::move(provider_p)),
-	      name(std::move(name_p)), serializable(false) {
+	BaseSecret(const vector<string> &prefix_paths, const string &type, const string &provider, const string &name)
+	    : prefix_paths(prefix_paths), type(type), provider(provider), name(name), serializable(false) {
 		D_ASSERT(!type.empty());
 	}
 	BaseSecret(const BaseSecret &other)
@@ -151,7 +148,7 @@ public:
 		D_ASSERT(!type.empty());
 		serializable = true;
 	}
-	explicit KeyValueSecret(const BaseSecret &secret)
+	KeyValueSecret(BaseSecret &secret)
 	    : BaseSecret(secret.GetScope(), secret.GetType(), secret.GetProvider(), secret.GetName()) {
 		serializable = true;
 	};
@@ -161,16 +158,15 @@ public:
 		redact_keys = secret.redact_keys;
 		serializable = true;
 	};
-	KeyValueSecret(KeyValueSecret &&secret) noexcept
-	    : BaseSecret(std::move(secret.prefix_paths), std::move(secret.type), std::move(secret.provider),
-	                 std::move(secret.name)) {
+	KeyValueSecret(KeyValueSecret &&secret)
+	    : BaseSecret(secret.GetScope(), secret.GetType(), secret.GetProvider(), secret.GetName()) {
 		secret_map = std::move(secret.secret_map);
 		redact_keys = std::move(secret.redact_keys);
 		serializable = true;
 	};
 
 	//! Print the secret as a key value map in the format 'key1=value;key2=value2'
-	string ToString(SecretDisplayType mode = SecretDisplayType::REDACTED) const override;
+	virtual string ToString(SecretDisplayType mode = SecretDisplayType::REDACTED) const override;
 	void Serialize(Serializer &serializer) const override;
 
 	//! Tries to get the value at key <key>, depending on error_on_missing will throw or return Value()

@@ -33,16 +33,15 @@ struct ParserExtensionParseData {
 	}
 
 	virtual unique_ptr<ParserExtensionParseData> Copy() const = 0;
-	virtual string ToString() const = 0;
 };
 
 struct ParserExtensionParseResult {
 	ParserExtensionParseResult() : type(ParserExtensionResultType::DISPLAY_ORIGINAL_ERROR) {
 	}
-	explicit ParserExtensionParseResult(string error_p)
+	ParserExtensionParseResult(string error_p)
 	    : type(ParserExtensionResultType::DISPLAY_EXTENSION_ERROR), error(std::move(error_p)) {
 	}
-	explicit ParserExtensionParseResult(unique_ptr<ParserExtensionParseData> parse_data_p)
+	ParserExtensionParseResult(unique_ptr<ParserExtensionParseData> parse_data_p)
 	    : type(ParserExtensionResultType::PARSE_SUCCESSFUL), parse_data(std::move(parse_data_p)) {
 	}
 
@@ -60,7 +59,7 @@ typedef ParserExtensionParseResult (*parse_function_t)(ParserExtensionInfo *info
 //===--------------------------------------------------------------------===//
 // Plan
 //===--------------------------------------------------------------------===//
-struct ParserExtensionPlanResult { // NOLINT: work-around bug in clang-tidy
+struct ParserExtensionPlanResult {
 	//! The table function to execute
 	TableFunction function;
 	//! Parameters to the function

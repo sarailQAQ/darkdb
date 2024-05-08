@@ -20,14 +20,6 @@
 namespace duckdb {
 
 struct UnifiedVectorFormat {
-	DUCKDB_API UnifiedVectorFormat();
-	// disable copy constructors
-	UnifiedVectorFormat(const UnifiedVectorFormat &other) = delete;
-	UnifiedVectorFormat &operator=(const UnifiedVectorFormat &) = delete;
-	//! enable move constructors
-	DUCKDB_API UnifiedVectorFormat(UnifiedVectorFormat &&other) noexcept;
-	DUCKDB_API UnifiedVectorFormat &operator=(UnifiedVectorFormat &&) noexcept;
-
 	const SelectionVector *sel;
 	data_ptr_t data;
 	ValidityMask validity;
@@ -83,9 +75,9 @@ public:
 	//! Create a vector that references the other vector
 	DUCKDB_API Vector(Vector &other);
 	//! Create a vector that slices another vector
-	DUCKDB_API explicit Vector(const Vector &other, const SelectionVector &sel, idx_t count);
+	DUCKDB_API explicit Vector(Vector &other, const SelectionVector &sel, idx_t count);
 	//! Create a vector that slices another vector between a pair of offsets
-	DUCKDB_API explicit Vector(const Vector &other, idx_t offset, idx_t end);
+	DUCKDB_API explicit Vector(Vector &other, idx_t offset, idx_t end);
 	//! Create a vector of size one holding the passed on value
 	DUCKDB_API explicit Vector(const Value &value);
 	//! Create a vector of size tuple_count (non-standard)
@@ -213,11 +205,6 @@ public:
 	// Setters
 	DUCKDB_API void SetVectorType(VectorType vector_type);
 
-	// Transform vector to an equivalent dictionary vector
-	static void DebugTransformToDictionary(Vector &vector, idx_t count);
-	// Transform vector to an equivalent nested vector
-	static void DebugShuffleNestedVector(Vector &vector, idx_t count);
-
 private:
 	//! Returns the [index] element of the Vector as a Value.
 	static Value GetValue(const Vector &v, idx_t index);
@@ -291,33 +278,23 @@ struct ConstantVector {
 struct DictionaryVector {
 	static inline const SelectionVector &SelVector(const Vector &vector) {
 		D_ASSERT(vector.GetVectorType() == VectorType::DICTIONARY_VECTOR);
-		return vector.buffer->Cast<DictionaryBuffer>().GetSelVector();
+		return ((const DictionaryBuffer &)*vector.buffer).GetSelVector();
 	}
 	static inline SelectionVector &SelVector(Vector &vector) {
 		D_ASSERT(vector.GetVectorType() == VectorType::DICTIONARY_VECTOR);
-		return vector.buffer->Cast<DictionaryBuffer>().GetSelVector();
+		return ((DictionaryBuffer &)*vector.buffer).GetSelVector();
 	}
 	static inline const Vector &Child(const Vector &vector) {
 		D_ASSERT(vector.GetVectorType() == VectorType::DICTIONARY_VECTOR);
-		return vector.auxiliary->Cast<VectorChildBuffer>().data;
+		return ((const VectorChildBuffer &)*vector.auxiliary).data;
 	}
 	static inline Vector &Child(Vector &vector) {
 		D_ASSERT(vector.GetVectorType() == VectorType::DICTIONARY_VECTOR);
-		return vector.auxiliary->Cast<VectorChildBuffer>().data;
+		return ((VectorChildBuffer &)*vector.auxiliary).data;
 	}
 };
 
 struct FlatVector {
-	static void VerifyFlatVector(const Vector &vector) {
-#ifdef DUCKDB_DEBUG_NO_SAFETY
-		D_ASSERT(vector.GetVectorType() == VectorType::FLAT_VECTOR);
-#else
-		if (vector.GetVectorType() != VectorType::FLAT_VECTOR) {
-			throw InternalException("Operation requires a flat vector but a non-flat vector was encountered");
-		}
-#endif
-	}
-
 	static inline data_ptr_t GetData(Vector &vector) {
 		return ConstantVector::GetData(vector);
 	}
@@ -339,15 +316,15 @@ struct FlatVector {
 		return FlatVector::GetData<T>(vector)[idx];
 	}
 	static inline const ValidityMask &Validity(const Vector &vector) {
-		VerifyFlatVector(vector);
+		D_ASSERT(vector.GetVectorType() == VectorType::FLAT_VECTOR);
 		return vector.validity;
 	}
 	static inline ValidityMask &Validity(Vector &vector) {
-		VerifyFlatVector(vector);
+		D_ASSERT(vector.GetVectorType() == VectorType::FLAT_VECTOR);
 		return vector.validity;
 	}
-	static inline void SetValidity(Vector &vector, const ValidityMask &new_validity) {
-		VerifyFlatVector(vector);
+	static inline void SetValidity(Vector &vector, ValidityMask &new_validity) {
+		D_ASSERT(vector.GetVectorType() == VectorType::FLAT_VECTOR);
 		vector.validity.Initialize(new_validity);
 	}
 	DUCKDB_API static void SetNull(Vector &vector, idx_t idx, bool is_null);
@@ -390,10 +367,6 @@ struct ListVector {
 	DUCKDB_API static void GetConsecutiveChildSelVector(Vector &list, SelectionVector &sel, idx_t offset, idx_t count);
 	//! Share the entry of the other list vector
 	DUCKDB_API static void ReferenceEntry(Vector &vector, Vector &other);
-
-private:
-	template <class T>
-	static T &GetEntryInternal(T &vector);
 };
 
 struct StringVector {
@@ -464,7 +437,15 @@ struct FSSTVector {
 	DUCKDB_API static idx_t GetCount(Vector &vector);
 };
 
-enum class MapInvalidReason : uint8_t { VALID, NULL_KEY, DUPLICATE_KEY, NOT_ALIGNED, INVALID_PARAMS };
+enum class MapInvalidReason : uint8_t {
+	VALID,
+	NULL_KEY_LIST,
+	NULL_KEY,
+	DUPLICATE_KEY,
+	NULL_VALUE_LIST,
+	NOT_ALIGNED,
+	INVALID_PARAMS
+};
 
 struct MapVector {
 	DUCKDB_API static const Vector &GetKeys(const Vector &vector);
@@ -489,10 +470,6 @@ struct ArrayVector {
 	DUCKDB_API static Vector &GetEntry(Vector &vector);
 	//! Gets the total size of the underlying child-vector of an array
 	DUCKDB_API static idx_t GetTotalSize(const Vector &vector);
-
-private:
-	template <class T>
-	static T &GetEntryInternal(T &vector);
 };
 
 enum class UnionInvalidReason : uint8_t {
@@ -526,9 +503,8 @@ struct UnionVector {
 	DUCKDB_API static const Vector &GetTags(const Vector &v);
 	DUCKDB_API static Vector &GetTags(Vector &v);
 
-	//! Try to get the tag at the specific flat index of the union vector. Returns false if the tag is NULL.
-	//! This will handle and map the index properly for constant and dictionary vectors internally.
-	DUCKDB_API static bool TryGetTag(const Vector &vector, idx_t index, union_tag_t &tag);
+	//! Get the tag at the specific index of the union vector
+	DUCKDB_API static union_tag_t GetTag(const Vector &vector, idx_t index);
 
 	//! Get the member vector of a union vector by index
 	DUCKDB_API static const Vector &GetMember(const Vector &vector, idx_t member_index);
@@ -552,7 +528,7 @@ struct UnionVector {
 struct SequenceVector {
 	static void GetSequence(const Vector &vector, int64_t &start, int64_t &increment, int64_t &sequence_count) {
 		D_ASSERT(vector.GetVectorType() == VectorType::SEQUENCE_VECTOR);
-		auto data = reinterpret_cast<int64_t *>(vector.buffer->GetData());
+		auto data = (int64_t *)vector.buffer->GetData();
 		start = data[0];
 		increment = data[1];
 		sequence_count = data[2];

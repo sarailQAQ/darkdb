@@ -17,7 +17,6 @@ class BufferedFileReader : public ReadStream {
 public:
 	BufferedFileReader(FileSystem &fs, const char *path, FileLockType lock_type = FileLockType::READ_LOCK,
 	                   optional_ptr<FileOpener> opener = nullptr);
-	BufferedFileReader(FileSystem &fs, unique_ptr<FileHandle> handle);
 
 	FileSystem &fs;
 	unsafe_unique_array<data_t> data;
@@ -34,8 +33,6 @@ public:
 		return file_size;
 	}
 
-	//! Resets reading - beginning at position 0
-	void Reset();
 	void Seek(uint64_t location);
 	uint64_t CurrentOffset();
 

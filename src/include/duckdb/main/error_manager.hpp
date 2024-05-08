@@ -32,23 +32,23 @@ enum class ErrorType : uint16_t {
 //! It allows for error messages to be overridden by extensions and clients
 class ErrorManager {
 public:
-	template <typename... ARGS>
-	string FormatException(ErrorType error_type, ARGS... params) {
+	template <typename... Args>
+	string FormatException(ErrorType error_type, Args... params) {
 		vector<ExceptionFormatValue> values;
 		return FormatExceptionRecursive(error_type, values, params...);
 	}
 
 	DUCKDB_API string FormatExceptionRecursive(ErrorType error_type, vector<ExceptionFormatValue> &values);
 
-	template <class T, typename... ARGS>
+	template <class T, typename... Args>
 	string FormatExceptionRecursive(ErrorType error_type, vector<ExceptionFormatValue> &values, T param,
-	                                ARGS... params) {
+	                                Args... params) {
 		values.push_back(ExceptionFormatValue::CreateFormatValue<T>(param));
 		return FormatExceptionRecursive(error_type, values, params...);
 	}
 
-	template <typename... ARGS>
-	static string FormatException(ClientContext &context, ErrorType error_type, ARGS... params) {
+	template <typename... Args>
+	static string FormatException(ClientContext &context, ErrorType error_type, Args... params) {
 		return Get(context).FormatException(error_type, params...);
 	}
 

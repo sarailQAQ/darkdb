@@ -79,7 +79,7 @@ public:
 	static bool Equals(const BaseExpression &left, const BaseExpression &right) {
 		return left.Equals(right);
 	}
-	bool operator==(const BaseExpression &rhs) const {
+	bool operator==(const BaseExpression &rhs) {
 		return Equals(rhs);
 	}
 

@@ -21,13 +21,12 @@ public:
 	explicit ClientContextFileOpener(ClientContext &context_p) : context(context_p) {
 	}
 
-	SettingLookupResult TryGetCurrentSetting(const string &key, Value &result, FileOpenerInfo &info) override;
-	SettingLookupResult TryGetCurrentSetting(const string &key, Value &result) override;
+	bool TryGetCurrentSetting(const string &key, Value &result, FileOpenerInfo &info) override;
+	bool TryGetCurrentSetting(const string &key, Value &result) override;
 
-	optional_ptr<ClientContext> TryGetClientContext() override {
+	ClientContext *TryGetClientContext() override {
 		return &context;
-	}
-	optional_ptr<DatabaseInstance> TryGetDatabase() override;
+	};
 
 private:
 	ClientContext &context;

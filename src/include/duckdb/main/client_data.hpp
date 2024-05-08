@@ -64,7 +64,6 @@ struct ClientData {
 
 public:
 	DUCKDB_API static ClientData &Get(ClientContext &context);
-	DUCKDB_API static const ClientData &Get(const ClientContext &context);
 };
 
 } // namespace duckdb

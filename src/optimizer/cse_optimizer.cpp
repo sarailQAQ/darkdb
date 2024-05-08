@@ -13,9 +13,9 @@ namespace duckdb {
 //! underlying projection
 struct CSENode {
 	idx_t count;
-	optional_idx column_index;
+	idx_t column_index;
 
-	CSENode() : count(1), column_index() {
+	CSENode() : count(1), column_index(DConstants::INVALID_INDEX) {
 	}
 };
 
@@ -102,7 +102,7 @@ void CommonSubExpressionOptimizer::PerformCSEReplacement(unique_ptr<Expression> 
 			// check if it has already been pushed into the projection
 			auto alias = expr.alias;
 			auto type = expr.return_type;
-			if (!node.column_index.IsValid()) {
+			if (node.column_index == DConstants::INVALID_INDEX) {
 				// has not been pushed yet: push it
 				node.column_index = state.expressions.size();
 				state.expressions.push_back(std::move(expr_ptr));
@@ -110,8 +110,8 @@ void CommonSubExpressionOptimizer::PerformCSEReplacement(unique_ptr<Expression> 
 				state.cached_expressions.push_back(std::move(expr_ptr));
 			}
 			// replace the original expression with a bound column ref
-			expr_ptr = make_uniq<BoundColumnRefExpression>(
-			    alias, type, ColumnBinding(state.projection_index, node.column_index.GetIndex()));
+			expr_ptr = make_uniq<BoundColumnRefExpression>(alias, type,
+			                                               ColumnBinding(state.projection_index, node.column_index));
 			return;
 		}
 	}

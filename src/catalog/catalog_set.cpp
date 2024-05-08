@@ -192,7 +192,7 @@ bool CatalogSet::CreateEntryInternal(CatalogTransaction transaction, const strin
 }
 
 bool CatalogSet::CreateEntry(CatalogTransaction transaction, const string &name, unique_ptr<CatalogEntry> value,
-                             const LogicalDependencyList &dependencies) {
+                             const DependencyList &dependencies) {
 	CheckCatalogEntryInvariants(*value, name);
 
 	// Set the timestamp to the timestamp of the current transaction
@@ -210,7 +210,7 @@ bool CatalogSet::CreateEntry(CatalogTransaction transaction, const string &name,
 }
 
 bool CatalogSet::CreateEntry(ClientContext &context, const string &name, unique_ptr<CatalogEntry> value,
-                             const LogicalDependencyList &dependencies) {
+                             const DependencyList &dependencies) {
 	return CreateEntry(catalog.GetCatalogTransaction(context), name, std::move(value), dependencies);
 }
 
@@ -355,7 +355,7 @@ bool CatalogSet::AlterEntry(CatalogTransaction transaction, const string &name, 
 	write_lock.unlock();
 
 	// Check the dependency manager to verify that there are no conflicting dependencies with this alter
-	catalog.GetDependencyManager().AlterObject(transaction, *entry, *new_entry, alter_info);
+	catalog.GetDependencyManager().AlterObject(transaction, *entry, *new_entry);
 
 	return true;
 }

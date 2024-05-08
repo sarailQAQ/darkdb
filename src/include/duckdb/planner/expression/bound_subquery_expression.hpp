@@ -23,7 +23,7 @@ public:
 	explicit BoundSubqueryExpression(LogicalType return_type);
 
 	bool IsCorrelated() {
-		return !binder->correlated_columns.empty();
+		return binder->correlated_columns.size() > 0;
 	}
 
 	//! The binder used to bind the subquery node

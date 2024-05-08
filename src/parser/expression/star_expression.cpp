@@ -28,7 +28,7 @@ string StarExpression::ToString() const {
 			if (!first_entry) {
 				result += ", ";
 			}
-			result += KeywordHelper::WriteOptionallyQuoted(entry);
+			result += entry;
 			first_entry = false;
 		}
 		result += ")";
@@ -42,7 +42,7 @@ string StarExpression::ToString() const {
 			}
 			result += entry.second->ToString();
 			result += " AS ";
-			result += KeywordHelper::WriteOptionallyQuoted(entry.first);
+			result += entry.first;
 			first_entry = false;
 		}
 		result += ")";

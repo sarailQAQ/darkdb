@@ -9,7 +9,6 @@
 #pragma once
 
 #include "duckdb/planner/logical_operator.hpp"
-#include "duckdb/planner/bound_constraint.hpp"
 
 namespace duckdb {
 class TableCatalogEntry;
@@ -29,7 +28,6 @@ public:
 	bool return_chunk;
 	vector<PhysicalIndex> columns;
 	vector<unique_ptr<Expression>> bound_defaults;
-	vector<unique_ptr<BoundConstraint>> bound_constraints;
 	bool update_is_del_and_insert;
 
 public:

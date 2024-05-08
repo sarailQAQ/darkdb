@@ -19,7 +19,7 @@ class ExecutorTask : public Task {
 public:
 	ExecutorTask(Executor &executor, shared_ptr<Event> event);
 	ExecutorTask(ClientContext &context, shared_ptr<Event> event);
-	~ExecutorTask() override;
+	virtual ~ExecutorTask();
 
 public:
 	void Deschedule() override;

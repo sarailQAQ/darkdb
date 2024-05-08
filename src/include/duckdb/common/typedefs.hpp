@@ -37,27 +37,27 @@ typedef idx_t column_t;
 typedef idx_t storage_t;
 
 template <class SRC>
-data_ptr_t data_ptr_cast(SRC *src) { // NOLINT: naming
+data_ptr_t data_ptr_cast(SRC *src) {
 	return reinterpret_cast<data_ptr_t>(src);
 }
 
 template <class SRC>
-const_data_ptr_t const_data_ptr_cast(const SRC *src) { // NOLINT: naming
+const_data_ptr_t const_data_ptr_cast(const SRC *src) {
 	return reinterpret_cast<const_data_ptr_t>(src);
 }
 
 template <class SRC>
-char *char_ptr_cast(SRC *src) { // NOLINT: naming
+char *char_ptr_cast(SRC *src) {
 	return reinterpret_cast<char *>(src);
 }
 
 template <class SRC>
-const char *const_char_ptr_cast(const SRC *src) { // NOLINT: naming
+const char *const_char_ptr_cast(const SRC *src) {
 	return reinterpret_cast<const char *>(src);
 }
 
 template <class SRC>
-const unsigned char *const_uchar_ptr_cast(const SRC *src) { // NOLINT: naming
+const unsigned char *const_uchar_ptr_cast(const SRC *src) {
 	return reinterpret_cast<const unsigned char *>(src);
 }
 

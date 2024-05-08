@@ -46,8 +46,6 @@ using duckdb::make_unsafe_uniq_array;
 using duckdb::FastMemcpy;
 using duckdb::FastMemcmp;
 
-// NOLINTBEGIN
-
 enum {
 	// Partitions below this size are sorted using insertion sort.
 	insertion_sort_threshold = 24,
@@ -154,9 +152,9 @@ struct PDQIterator {
 	}
 
 	inline friend idx_t operator-(const PDQIterator &lhs, const PDQIterator &rhs) {
-		D_ASSERT(duckdb::NumericCast<idx_t>(*lhs - *rhs) % lhs.entry_size == 0);
+		D_ASSERT((*lhs - *rhs) % lhs.entry_size == 0);
 		D_ASSERT(*lhs - *rhs >= 0);
-		return duckdb::NumericCast<idx_t>(*lhs - *rhs) / lhs.entry_size;
+		return (*lhs - *rhs) / lhs.entry_size;
 	}
 
 	inline friend bool operator<(const PDQIterator &lhs, const PDQIterator &rhs) {
@@ -320,7 +318,7 @@ inline T *align_cacheline(T *p) {
 #else
 	std::size_t ip = reinterpret_cast<std::size_t>(p);
 #endif
-	ip = (ip + cacheline_size - 1) & -duckdb::UnsafeNumericCast<uintptr_t>(cacheline_size);
+	ip = (ip + cacheline_size - 1) & -cacheline_size;
 	return reinterpret_cast<T *>(ip);
 }
 
@@ -706,6 +704,5 @@ inline void pdqsort_branchless(const PDQIterator &begin, const PDQIterator &end,
 	}
 	pdqsort_loop<true>(begin, end, constants, log2(end - begin));
 }
-// NOLINTEND
 
 } // namespace duckdb_pdqsort

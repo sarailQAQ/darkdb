@@ -1,14 +1,9 @@
 #include <string>
-
-// duplicated from string_util.h to avoid linking issues
-#ifndef DUCKDB_QUOTE_DEFINE
-#define DUCKDB_QUOTE_DEFINE_IMPL(x) #x
-#define DUCKDB_QUOTE_DEFINE(x)      DUCKDB_QUOTE_DEFINE_IMPL(x)
-#endif
+#include "duckdb/common/string_util.hpp"
 
 namespace duckdb {
 
-std::string DuckDBPlatform() { // NOLINT: allow definition in header
+std::string 			DuckDBPlatform() {
 #if defined(DUCKDB_CUSTOM_PLATFORM)
 	return DUCKDB_QUOTE_DEFINE(DUCKDB_CUSTOM_PLATFORM);
 #endif

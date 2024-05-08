@@ -18,13 +18,15 @@ namespace duckdb {
 class HavingBinder : public BaseSelectBinder {
 public:
 	HavingBinder(Binder &binder, ClientContext &context, BoundSelectNode &node, BoundGroupInformation &info,
-	             AggregateHandling aggregate_handling);
+	             case_insensitive_map_t<idx_t> &alias_map, AggregateHandling aggregate_handling);
 
 protected:
-	BindResult BindWindow(WindowExpression &expr, idx_t depth) override;
-	BindResult BindColumnRef(unique_ptr<ParsedExpression> &expr_ptr, idx_t depth, bool root_expression) override;
+	BindResult BindExpression(unique_ptr<ParsedExpression> &expr_ptr, idx_t depth,
+	                          bool root_expression = false) override;
 
 private:
+	BindResult BindColumnRef(unique_ptr<ParsedExpression> &expr_ptr, idx_t depth, bool root_expression);
+
 	ColumnAliasBinder column_alias_binder;
 	AggregateHandling aggregate_handling;
 };

@@ -24,7 +24,6 @@ public:
 		auto &config = DBConfig::GetConfig(context);
 		return *config.file_system;
 	}
-
 	optional_ptr<FileOpener> GetOpener() const override {
 		return ClientData::Get(context).file_opener.get();
 	}
@@ -35,8 +34,8 @@ private:
 
 ClientData::ClientData(ClientContext &context) : catalog_search_path(make_uniq<CatalogSearchPath>(context)) {
 	auto &db = DatabaseInstance::GetDatabase(context);
-	profiler = make_shared_ptr<QueryProfiler>(context);
-	temporary_objects = make_shared_ptr<AttachedDatabase>(db, AttachedDatabaseType::TEMP_DATABASE);
+	profiler = make_shared<QueryProfiler>(context);
+	temporary_objects = make_shared<AttachedDatabase>(db, AttachedDatabaseType::TEMP_DATABASE);
 	temporary_objects->oid = DatabaseManager::Get(db).ModifyCatalog();
 	random_engine = make_uniq<RandomEngine>();
 	file_opener = make_uniq<ClientContextFileOpener>(context);
@@ -47,10 +46,6 @@ ClientData::~ClientData() {
 }
 
 ClientData &ClientData::Get(ClientContext &context) {
-	return *context.client_data;
-}
-
-const ClientData &ClientData::Get(const ClientContext &context) {
 	return *context.client_data;
 }
 

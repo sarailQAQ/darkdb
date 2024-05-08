@@ -399,7 +399,7 @@ bool Uhugeint::TryCast(uhugeint_t input, hugeint_t &result) {
 	}
 
 	result.lower = input.lower;
-	result.upper = UnsafeNumericCast<int64_t>(input.upper);
+	result.upper = input.upper;
 	return true;
 }
 

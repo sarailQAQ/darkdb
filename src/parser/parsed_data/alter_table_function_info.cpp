@@ -35,8 +35,4 @@ unique_ptr<AlterInfo> AddTableFunctionOverloadInfo::Copy() const {
 	return make_uniq_base<AlterInfo, AddTableFunctionOverloadInfo>(GetAlterEntryData(), new_overloads);
 }
 
-string AddTableFunctionOverloadInfo::ToString() const {
-	throw NotImplementedException("NOT PARSABLE");
-}
-
 } // namespace duckdb

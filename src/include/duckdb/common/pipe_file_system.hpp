@@ -28,7 +28,7 @@ public:
 	bool CanSeek() override {
 		return false;
 	}
-	bool IsPipe(const string &filename, optional_ptr<FileOpener> opener) override {
+	bool IsPipe(const string &filename) override {
 		return true;
 	}
 	void FileSync(FileHandle &handle) override;

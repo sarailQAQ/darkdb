@@ -19,7 +19,7 @@ namespace duckdb {
 // Escaping " and quoting the value with "
 class SQLIdentifier {
 public:
-	explicit SQLIdentifier(const string &raw_string) : raw_string(raw_string) {
+	SQLIdentifier(const string &raw_string) : raw_string(raw_string) {
 	}
 
 public:
@@ -30,7 +30,7 @@ public:
 // Escaping ' and quoting the value with '
 class SQLString {
 public:
-	explicit SQLString(const string &raw_string) : raw_string(raw_string) {
+	SQLString(const string &raw_string) : raw_string(raw_string) {
 	}
 
 public:

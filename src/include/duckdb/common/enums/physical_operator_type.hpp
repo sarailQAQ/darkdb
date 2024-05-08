@@ -31,6 +31,7 @@ enum class PhysicalOperatorType : uint8_t {
 	PROJECTION,
 	COPY_TO_FILE,
 	BATCH_COPY_TO_FILE,
+	FIXED_BATCH_COPY_TO_FILE,
 	RESERVOIR_SAMPLE,
 	STREAMING_SAMPLE,
 	STREAMING_WINDOW,
@@ -112,7 +113,6 @@ enum class PhysicalOperatorType : uint8_t {
 	RESULT_COLLECTOR,
 	RESET,
 	EXTENSION,
-	VERIFY_VECTOR,
 
 	// -----------------------------
 	// Secret

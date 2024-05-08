@@ -19,9 +19,8 @@ class TableIOManager;
 struct DataTableInfo {
 	DataTableInfo(AttachedDatabase &db, shared_ptr<TableIOManager> table_io_manager_p, string schema, string table);
 
-	//! Initialize any unknown indexes whose types might now be present after an extension load, optionally throwing an
-	//! exception if an index can't be initialized
-	void InitializeIndexes(ClientContext &context, bool throw_on_failure = false);
+	//! Initialize any unknown indexes whose types might now be present after an extension load
+	void InitializeIndexes(ClientContext &context);
 
 	//! The database instance of the table
 	AttachedDatabase &db;

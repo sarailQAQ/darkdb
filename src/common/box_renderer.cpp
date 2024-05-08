@@ -399,7 +399,7 @@ vector<idx_t> BoxRenderer::ComputeRenderWidths(const vector<string> &names, cons
 			// e.g. if we have 10 columns, we remove #5, then #4, then #6, then #3, then #7, etc
 			int64_t offset = 0;
 			while (total_length > max_width) {
-				auto c = NumericCast<idx_t>(NumericCast<int64_t>(column_count) / 2 + offset);
+				idx_t c = column_count / 2 + offset;
 				total_length -= widths[c] + 3;
 				pruned_columns.insert(c);
 				if (offset >= 0) {
@@ -446,7 +446,7 @@ void BoxRenderer::RenderHeader(const vector<string> &names, const vector<Logical
 		}
 	}
 	ss << config.RTCORNER;
-	ss << '\n';
+	ss << std::endl;
 
 	// render the header names
 	for (idx_t c = 0; c < column_count; c++) {
@@ -460,7 +460,7 @@ void BoxRenderer::RenderHeader(const vector<string> &names, const vector<Logical
 		RenderValue(ss, name, widths[c]);
 	}
 	ss << config.VERTICAL;
-	ss << '\n';
+	ss << std::endl;
 
 	// render the types
 	if (config.render_mode == RenderMode::ROWS) {
@@ -470,7 +470,7 @@ void BoxRenderer::RenderHeader(const vector<string> &names, const vector<Logical
 			RenderValue(ss, type, widths[c]);
 		}
 		ss << config.VERTICAL;
-		ss << '\n';
+		ss << std::endl;
 	}
 
 	// render the line under the header
@@ -485,7 +485,7 @@ void BoxRenderer::RenderHeader(const vector<string> &names, const vector<Logical
 		}
 	}
 	ss << config.RMIDDLE;
-	ss << '\n';
+	ss << std::endl;
 }
 
 void BoxRenderer::RenderValues(const list<ColumnDataCollection> &collections, const vector<idx_t> &column_map,
@@ -534,7 +534,7 @@ void BoxRenderer::RenderValues(const list<ColumnDataCollection> &collections, co
 			RenderValue(ss, str, widths[c], alignment);
 		}
 		ss << config.VERTICAL;
-		ss << '\n';
+		ss << std::endl;
 	}
 
 	if (bottom_rows > 0) {
@@ -590,7 +590,7 @@ void BoxRenderer::RenderValues(const list<ColumnDataCollection> &collections, co
 				RenderValue(ss, str, widths[c], alignment);
 			}
 			ss << config.VERTICAL;
-			ss << '\n';
+			ss << std::endl;
 		}
 		// note that the bottom rows are in reverse order
 		for (idx_t r = 0; r < bottom_rows; r++) {
@@ -605,7 +605,7 @@ void BoxRenderer::RenderValues(const list<ColumnDataCollection> &collections, co
 				RenderValue(ss, str, widths[c], alignments[c]);
 			}
 			ss << config.VERTICAL;
-			ss << '\n';
+			ss << std::endl;
 		}
 	}
 }
@@ -644,7 +644,7 @@ void BoxRenderer::RenderRowCount(string row_count_str, string shown_str, const s
 			}
 		}
 		ss << (render_anything ? config.RMIDDLE : config.RDCORNER);
-		ss << '\n';
+		ss << std::endl;
 	}
 	if (!render_anything) {
 		return;
@@ -658,16 +658,16 @@ void BoxRenderer::RenderRowCount(string row_count_str, string shown_str, const s
 		ss << column_count_str;
 		ss << " ";
 		ss << config.VERTICAL;
-		ss << '\n';
+		ss << std::endl;
 	} else if (render_rows) {
 		RenderValue(ss, row_count_str, total_length - 4);
 		ss << config.VERTICAL;
-		ss << '\n';
+		ss << std::endl;
 
 		if (display_shown_separately) {
 			RenderValue(ss, shown_str, total_length - 4);
 			ss << config.VERTICAL;
-			ss << '\n';
+			ss << std::endl;
 		}
 	}
 	// render the bottom line
@@ -676,7 +676,7 @@ void BoxRenderer::RenderRowCount(string row_count_str, string shown_str, const s
 		ss << config.HORIZONTAL;
 	}
 	ss << config.RDCORNER;
-	ss << '\n';
+	ss << std::endl;
 }
 
 void BoxRenderer::Render(ClientContext &context, const vector<string> &names, const ColumnDataCollection &result,

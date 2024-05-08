@@ -33,7 +33,7 @@ struct InstrAsciiOperator {
 	template <class TA, class TB, class TR>
 	static inline TR Operation(TA haystack, TB needle) {
 		auto location = ContainsFun::Find(haystack, needle);
-		return UnsafeNumericCast<TR>(location == DConstants::INVALID_INDEX ? 0U : location + 1U);
+		return location == DConstants::INVALID_INDEX ? 0 : location + 1;
 	}
 };
 

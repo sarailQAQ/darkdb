@@ -80,70 +80,62 @@ unique_ptr<BoundTableRef> Binder::Bind(BaseTableRef &ref) {
 	// check if the table name refers to a CTE
 
 	// CTE name should never be qualified (i.e. schema_name should be empty)
-	vector<reference<CommonTableExpressionInfo>> found_ctes;
+	optional_ptr<CommonTableExpressionInfo> found_cte = nullptr;
 	if (ref.schema_name.empty()) {
-		found_ctes = FindCTE(ref.table_name, ref.table_name == alias);
+		found_cte = FindCTE(ref.table_name, ref.table_name == alias);
 	}
 
-	if (!found_ctes.empty()) {
+	if (found_cte) {
 		// Check if there is a CTE binding in the BindContext
-		bool circular_cte = false;
-		for (auto found_cte : found_ctes) {
-			auto &cte = found_cte.get();
-			auto ctebinding = bind_context.GetCTEBinding(ref.table_name);
-			if (!ctebinding) {
-				if (CTEIsAlreadyBound(cte)) {
-					// remember error state
-					circular_cte = true;
-					// retry with next candidate CTE
-					continue;
-				}
-				// Move CTE to subquery and bind recursively
-				SubqueryRef subquery(unique_ptr_cast<SQLStatement, SelectStatement>(cte.query->Copy()));
-				subquery.alias = ref.alias.empty() ? ref.table_name : ref.alias;
-				subquery.column_name_alias = cte.aliases;
-				for (idx_t i = 0; i < ref.column_name_alias.size(); i++) {
-					if (i < subquery.column_name_alias.size()) {
-						subquery.column_name_alias[i] = ref.column_name_alias[i];
-					} else {
-						subquery.column_name_alias.push_back(ref.column_name_alias[i]);
-					}
-				}
-				return Bind(subquery, &found_cte.get());
-			} else {
-				// There is a CTE binding in the BindContext.
-				// This can only be the case if there is a recursive CTE,
-				// or a materialized CTE present.
-				auto index = GenerateTableIndex();
-				auto materialized = cte.materialized;
-				if (materialized == CTEMaterialize::CTE_MATERIALIZE_DEFAULT) {
-#ifdef DUCKDB_ALTERNATIVE_VERIFY
-					materialized = CTEMaterialize::CTE_MATERIALIZE_ALWAYS;
-#else
-					materialized = CTEMaterialize::CTE_MATERIALIZE_NEVER;
-#endif
-				}
-				auto result = make_uniq<BoundCTERef>(index, ctebinding->index, materialized);
-				auto alias = ref.alias.empty() ? ref.table_name : ref.alias;
-				auto names = BindContext::AliasColumnNames(alias, ctebinding->names, ref.column_name_alias);
-
-				bind_context.AddGenericBinding(index, alias, names, ctebinding->types);
-				// Update references to CTE
-				auto cteref = bind_context.cte_references[ref.table_name];
-				(*cteref)++;
-
-				result->types = ctebinding->types;
-				result->bound_columns = std::move(names);
-				return std::move(result);
+		auto &cte = *found_cte;
+		auto ctebinding = bind_context.GetCTEBinding(ref.table_name);
+		if (!ctebinding) {
+			if (CTEIsAlreadyBound(cte)) {
+				throw BinderException(
+				    "Circular reference to CTE \"%s\", There are two possible solutions. \n1. use WITH RECURSIVE to "
+				    "use recursive CTEs. \n2. If "
+				    "you want to use the TABLE name \"%s\" the same as the CTE name, please explicitly add "
+				    "\"SCHEMA\" before table name. You can try \"main.%s\" (main is the duckdb default schema)",
+				    ref.table_name, ref.table_name, ref.table_name);
 			}
-		}
-		if (circular_cte) {
-			throw BinderException(
-			    "Circular reference to CTE \"%s\", There are two possible solutions. \n1. use WITH RECURSIVE to "
-			    "use recursive CTEs. \n2. If "
-			    "you want to use the TABLE name \"%s\" the same as the CTE name, please explicitly add "
-			    "\"SCHEMA\" before table name. You can try \"main.%s\" (main is the duckdb default schema)",
-			    ref.table_name, ref.table_name, ref.table_name);
+			// Move CTE to subquery and bind recursively
+			SubqueryRef subquery(unique_ptr_cast<SQLStatement, SelectStatement>(cte.query->Copy()));
+			subquery.alias = ref.alias.empty() ? ref.table_name : ref.alias;
+			subquery.column_name_alias = cte.aliases;
+			for (idx_t i = 0; i < ref.column_name_alias.size(); i++) {
+				if (i < subquery.column_name_alias.size()) {
+					subquery.column_name_alias[i] = ref.column_name_alias[i];
+				} else {
+					subquery.column_name_alias.push_back(ref.column_name_alias[i]);
+				}
+			}
+			return Bind(subquery, found_cte);
+		} else {
+			// There is a CTE binding in the BindContext.
+			// This can only be the case if there is a recursive CTE,
+			// or a materialized CTE present.
+			auto index = GenerateTableIndex();
+			auto materialized = cte.materialized;
+			if (materialized == CTEMaterialize::CTE_MATERIALIZE_DEFAULT) {
+#ifdef DUCKDB_ALTERNATIVE_VERIFY
+				materialized = CTEMaterialize::CTE_MATERIALIZE_ALWAYS;
+#else
+				materialized = CTEMaterialize::CTE_MATERIALIZE_NEVER;
+#endif
+			}
+			auto result = make_uniq<BoundCTERef>(index, ctebinding->index, materialized);
+			auto b = ctebinding;
+			auto alias = ref.alias.empty() ? ref.table_name : ref.alias;
+			auto names = BindContext::AliasColumnNames(alias, b->names, ref.column_name_alias);
+
+			bind_context.AddGenericBinding(index, alias, names, b->types);
+			// Update references to CTE
+			auto cteref = bind_context.cte_references[ref.table_name];
+			(*cteref)++;
+
+			result->types = b->types;
+			result->bound_columns = std::move(names);
+			return std::move(result);
 		}
 	}
 	// not a CTE
@@ -231,7 +223,8 @@ unique_ptr<BoundTableRef> Binder::Bind(BaseTableRef &ref) {
 		// We need to use a new binder for the view that doesn't reference any CTEs
 		// defined for this binder so there are no collisions between the CTEs defined
 		// for the view and for the current query
-		auto view_binder = Binder::CreateBinder(context, this, BinderType::VIEW_BINDER);
+		bool inherit_ctes = false;
+		auto view_binder = Binder::CreateBinder(context, this, inherit_ctes);
 		view_binder->can_contain_nulls = true;
 		SubqueryRef subquery(unique_ptr_cast<SQLStatement, SelectStatement>(view_catalog_entry.query->Copy()));
 		subquery.alias = ref.alias.empty() ? ref.table_name : ref.alias;
@@ -254,19 +247,11 @@ unique_ptr<BoundTableRef> Binder::Bind(BaseTableRef &ref) {
 		auto &bound_subquery = bound_child->Cast<BoundSubqueryRef>();
 		if (GetBindingMode() != BindingMode::EXTRACT_NAMES) {
 			if (bound_subquery.subquery->types != view_catalog_entry.types) {
-				auto actual_types = StringUtil::ToString(bound_subquery.subquery->types, ", ");
-				auto expected_types = StringUtil::ToString(view_catalog_entry.types, ", ");
-				throw BinderException(
-				    "Contents of view were altered: types don't match! Expected [%s], but found [%s] instead",
-				    expected_types, actual_types);
+				throw BinderException("Contents of view were altered: types don't match!");
 			}
 			if (bound_subquery.subquery->names.size() == view_catalog_entry.names.size() &&
 			    bound_subquery.subquery->names != view_catalog_entry.names) {
-				auto actual_names = StringUtil::Join(bound_subquery.subquery->names, ", ");
-				auto expected_names = StringUtil::Join(view_catalog_entry.names, ", ");
-				throw BinderException(
-				    "Contents of view were altered: names don't match! Expected [%s], but found [%s] instead",
-				    expected_names, actual_names);
+				throw BinderException("Contents of view were altered: names don't match!");
 			}
 		}
 		bind_context.AddView(bound_subquery.subquery->GetRootIndex(), subquery.alias, subquery,

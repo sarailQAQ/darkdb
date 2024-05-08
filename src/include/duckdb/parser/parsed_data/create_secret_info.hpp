@@ -18,7 +18,7 @@
 
 namespace duckdb {
 
-struct CreateSecretInfo : public CreateInfo { // NOLINT: work-around bug in clang-tidy
+struct CreateSecretInfo : public CreateInfo {
 public:
 	static constexpr const ParseInfoType TYPE = ParseInfoType::CREATE_SECRET_INFO;
 
@@ -41,7 +41,7 @@ public:
 	//! Named parameter list (if any)
 	case_insensitive_map_t<Value> options;
 
-	unique_ptr<CreateInfo> Copy() const override;
+	unique_ptr<CreateInfo> Copy() const;
 };
 
 } // namespace duckdb

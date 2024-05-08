@@ -44,10 +44,6 @@ BufferManager &BufferManager::GetBufferManager(ClientContext &context) {
 	return BufferManager::GetBufferManager(*context.db);
 }
 
-const BufferManager &BufferManager::GetBufferManager(const ClientContext &context) {
-	return BufferManager::GetBufferManager(*context.db);
-}
-
 ObjectCache &ObjectCache::GetObjectCache(ClientContext &context) {
 	return context.db->GetObjectCache();
 }
@@ -87,14 +83,14 @@ bool StorageManager::InMemory() {
 	return path == IN_MEMORY_PATH;
 }
 
-void StorageManager::Initialize(optional_ptr<ClientContext> context) {
+void StorageManager::Initialize() {
 	bool in_memory = InMemory();
 	if (in_memory && read_only) {
 		throw CatalogException("Cannot launch in-memory database in read-only mode!");
 	}
 
 	// create or load the database from disk, if not in-memory mode
-	LoadDatabase(context);
+	LoadDatabase();
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -121,7 +117,8 @@ SingleFileStorageManager::SingleFileStorageManager(AttachedDatabase &db, string 
     : StorageManager(db, std::move(path), read_only) {
 }
 
-void SingleFileStorageManager::LoadDatabase(optional_ptr<ClientContext> context) {
+void SingleFileStorageManager::LoadDatabase() {
+
 	if (InMemory()) {
 		block_manager = make_uniq<InMemoryBlockManager>(BufferManager::GetBufferManager(db));
 		table_io_manager = make_uniq<SingleFileTableIOManager>(*block_manager);
@@ -142,11 +139,12 @@ void SingleFileStorageManager::LoadDatabase(optional_ptr<ClientContext> context)
 	options.debug_initialize = config.options.debug_initialize;
 
 	// first check if the database exists
-	if (!read_only && !fs.FileExists(path)) {
-		// file does not exist and we are in read-write mode
-		// create a new file
+	if (!fs.FileExists(path)) {
+		if (read_only) {
+			throw CatalogException("Cannot open database \"%s\" in read-only mode: database does not exist", path);
+		}
 
-		// check if a WAL file already exists
+		// check if the WAL exists
 		auto wal_path = GetWALPath();
 		if (fs.FileExists(wal_path)) {
 			// WAL file exists but database file does not
@@ -159,10 +157,8 @@ void SingleFileStorageManager::LoadDatabase(optional_ptr<ClientContext> context)
 		sf_block_manager->CreateNewDatabase();
 		block_manager = std::move(sf_block_manager);
 		table_io_manager = make_uniq<SingleFileTableIOManager>(*block_manager);
-	} else {
-		// either the file exists, or we are in read-only mode
-		// try to read the existing file on disk
 
+	} else {
 		// initialize the block manager while loading the current db file
 		auto sf_block_manager = make_uniq<SingleFileBlockManager>(db, path, options);
 		sf_block_manager->LoadExistingDatabase();
@@ -171,14 +167,13 @@ void SingleFileStorageManager::LoadDatabase(optional_ptr<ClientContext> context)
 
 		// load the db from storage
 		auto checkpoint_reader = SingleFileCheckpointReader(*this);
-		checkpoint_reader.LoadFromStorage(context);
+		checkpoint_reader.LoadFromStorage();
 
 		// check if the WAL file exists
 		auto wal_path = GetWALPath();
-		auto handle = fs.OpenFile(wal_path, FileFlags::FILE_FLAGS_READ | FileFlags::FILE_FLAGS_NULL_IF_NOT_EXISTS);
-		if (handle) {
+		if (fs.FileExists(wal_path)) {
 			// replay the WAL
-			if (WriteAheadLog::Replay(db, std::move(handle))) {
+			if (WriteAheadLog::Replay(db, wal_path)) {
 				fs.RemoveFile(wal_path);
 			}
 		}
@@ -204,7 +199,7 @@ public:
 			wal.skip_writing = false;
 			if (wal.GetTotalWritten() > initial_written) {
 				// remove any entries written into the WAL by truncating it
-				wal.Truncate(NumericCast<int64_t>(initial_wal_size));
+				wal.Truncate(initial_wal_size);
 			}
 		}
 	}
@@ -288,7 +283,7 @@ DatabaseSize SingleFileStorageManager::GetDatabaseSize() {
 		ds.used_blocks = ds.total_blocks - ds.free_blocks;
 		ds.bytes = (ds.total_blocks * ds.block_size);
 		if (auto wal = GetWriteAheadLog()) {
-			ds.wal_size = NumericCast<idx_t>(wal->GetWALSize());
+			ds.wal_size = wal->GetWALSize();
 		}
 	}
 	return ds;
@@ -306,7 +301,7 @@ bool SingleFileStorageManager::AutomaticCheckpoint(idx_t estimated_wal_bytes) {
 	}
 
 	auto &config = DBConfig::Get(db);
-	auto initial_size = NumericCast<idx_t>(log->GetWALSize());
+	auto initial_size = log->GetWALSize();
 	idx_t expected_wal_size = initial_size + estimated_wal_bytes;
 	return expected_wal_size > config.options.checkpoint_wal_size;
 }

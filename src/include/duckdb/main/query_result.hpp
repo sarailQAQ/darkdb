@@ -65,7 +65,7 @@ public:
 	                       vector<LogicalType> types, vector<string> names, ClientProperties client_properties);
 	//! Creates an unsuccessful query result with error condition
 	DUCKDB_API QueryResult(QueryResultType type, ErrorData error);
-	DUCKDB_API ~QueryResult() override;
+	DUCKDB_API virtual ~QueryResult() override;
 
 	//! Properties from the client context
 	ClientProperties client_properties;
@@ -190,10 +190,10 @@ private:
 	};
 
 public:
-	QueryResultIterator begin() { // NOLINT: match stl API
+	QueryResultIterator begin() {
 		return QueryResultIterator(this);
 	}
-	QueryResultIterator end() { // NOLINT: match stl API
+	QueryResultIterator end() {
 		return QueryResultIterator(nullptr);
 	}
 

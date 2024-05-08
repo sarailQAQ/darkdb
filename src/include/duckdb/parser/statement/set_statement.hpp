@@ -25,7 +25,10 @@ protected:
 	SetStatement(const SetStatement &other) = default;
 
 public:
-	string name;
+	unique_ptr<SQLStatement> Copy() const override;
+
+public:
+	std::string name;
 	SetScope scope;
 	SetType set_type;
 };
@@ -39,7 +42,6 @@ protected:
 
 public:
 	unique_ptr<SQLStatement> Copy() const override;
-	string ToString() const override;
 
 public:
 	unique_ptr<ParsedExpression> value;
@@ -51,10 +53,6 @@ public:
 
 protected:
 	ResetVariableStatement(const ResetVariableStatement &other) = default;
-
-public:
-	unique_ptr<SQLStatement> Copy() const override;
-	string ToString() const override;
 };
 
 } // namespace duckdb

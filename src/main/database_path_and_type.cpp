@@ -14,9 +14,9 @@ void DBPathAndType::ExtractExtensionPrefix(string &path, string &db_type) {
 	}
 }
 
-void DBPathAndType::CheckMagicBytes(FileSystem &fs, string &path, string &db_type) {
+void DBPathAndType::CheckMagicBytes(string &path, string &db_type, const DBConfig &config) {
 	// if there isn't - check the magic bytes of the file (if any)
-	auto file_type = MagicBytes::CheckMagicBytes(fs, path);
+	auto file_type = MagicBytes::CheckMagicBytes(config.file_system.get(), path);
 	if (file_type == DataFileType::SQLITE_FILE) {
 		db_type = "sqlite";
 	} else {
@@ -24,7 +24,7 @@ void DBPathAndType::CheckMagicBytes(FileSystem &fs, string &path, string &db_typ
 	}
 }
 
-void DBPathAndType::ResolveDatabaseType(FileSystem &fs, string &path, string &db_type) {
+void DBPathAndType::ResolveDatabaseType(string &path, string &db_type, const DBConfig &config) {
 	if (!db_type.empty()) {
 		// database type specified explicitly - no need to check
 		return;
@@ -36,7 +36,7 @@ void DBPathAndType::ResolveDatabaseType(FileSystem &fs, string &path, string &db
 		return;
 	}
 	// check database type by reading the magic bytes of a file
-	DBPathAndType::CheckMagicBytes(fs, path, db_type);
+	DBPathAndType::CheckMagicBytes(path, db_type, config);
 }
 
 } // namespace duckdb

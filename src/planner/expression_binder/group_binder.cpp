@@ -4,14 +4,13 @@
 #include "duckdb/parser/expression/constant_expression.hpp"
 #include "duckdb/parser/query_node/select_node.hpp"
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
-#include "duckdb/planner/expression_binder/select_bind_state.hpp"
 #include "duckdb/common/to_string.hpp"
 
 namespace duckdb {
 
 GroupBinder::GroupBinder(Binder &binder, ClientContext &context, SelectNode &node, idx_t group_index,
-                         SelectBindState &bind_state, case_insensitive_map_t<idx_t> &group_alias_map)
-    : ExpressionBinder(binder, context), node(node), bind_state(bind_state), group_alias_map(group_alias_map),
+                         case_insensitive_map_t<idx_t> &alias_map, case_insensitive_map_t<idx_t> &group_alias_map)
+    : ExpressionBinder(binder, context), node(node), alias_map(alias_map), group_alias_map(group_alias_map),
       group_index(group_index) {
 }
 
@@ -95,8 +94,8 @@ BindResult GroupBinder::BindColumnRef(ColumnRefExpression &colref) {
 		// failed to bind the column and the node is the root expression with depth = 0
 		// check if refers to an alias in the select clause
 		auto alias_name = colref.column_names[0];
-		auto entry = bind_state.alias_map.find(alias_name);
-		if (entry == bind_state.alias_map.end()) {
+		auto entry = alias_map.find(alias_name);
+		if (entry == alias_map.end()) {
 			// no matching alias found
 			return result;
 		}

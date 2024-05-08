@@ -32,7 +32,7 @@ class LogicalOperator;
 class SelectStatement;
 struct CSVReaderOptions;
 
-typedef void (*warning_callback_t)(std::string);
+typedef void (*warning_callback)(std::string);
 
 //! A connection to a database. This represents a (client) connection that can
 //! be used to query the database.
@@ -49,7 +49,7 @@ public:
 	DUCKDB_API ~Connection();
 
 	shared_ptr<ClientContext> context;
-	warning_callback_t warning_cb;
+	warning_callback warning_cb;
 
 public:
 	//! Returns query profiling information for the current query
@@ -63,6 +63,8 @@ public:
 	//! Disable query profiling
 	DUCKDB_API void DisableProfiling();
 
+	DUCKDB_API void SetWarningCallback(warning_callback);
+
 	//! Enable aggressive verification/testing of queries, should only be used in testing
 	DUCKDB_API void EnableQueryVerification();
 	DUCKDB_API void DisableQueryVerification();
@@ -73,7 +75,7 @@ public:
 	//! MaterializedQueryResult. The result can be stepped through with calls to Fetch(). Note that there can only be
 	//! one active StreamQueryResult per Connection object. Calling SendQuery() will invalidate any previously existing
 	//! StreamQueryResult.
-	DUCKDB_API unique_ptr<QueryResult> SendQuery(const string &query);
+	DUCKDB_API unique_ptr<QueryResult>	SendQuery(const string &query);
 	//! Issues a query to the database and materializes the result (if necessary). Always returns a
 	//! MaterializedQueryResult.
 	DUCKDB_API unique_ptr<MaterializedQueryResult> Query(const string &query);
@@ -81,8 +83,8 @@ public:
 	//! MaterializedQueryResult.
 	DUCKDB_API unique_ptr<MaterializedQueryResult> Query(unique_ptr<SQLStatement> statement);
 	// prepared statements
-	template <typename... ARGS>
-	unique_ptr<QueryResult> Query(const string &query, ARGS... args) {
+	template <typename... Args>
+	unique_ptr<QueryResult> Query(const string &query, Args... args) {
 		vector<Value> values;
 		return QueryParamsRecursive(query, values, args...);
 	}
@@ -165,29 +167,28 @@ public:
 	//! Fetch a list of table names that are required for a given query
 	DUCKDB_API unordered_set<string> GetTableNames(const string &query);
 
-	// NOLINTBEGIN
-	template <typename TR, typename... ARGS>
-	void CreateScalarFunction(const string &name, TR (*udf_func)(ARGS...)) {
-		scalar_function_t function = UDFWrapper::CreateScalarFunction<TR, ARGS...>(name, udf_func);
-		UDFWrapper::RegisterFunction<TR, ARGS...>(name, function, *context);
+	template <typename TR, typename... Args>
+	void CreateScalarFunction(const string &name, TR (*udf_func)(Args...)) {
+		scalar_function_t function = UDFWrapper::CreateScalarFunction<TR, Args...>(name, udf_func);
+		UDFWrapper::RegisterFunction<TR, Args...>(name, function, *context);
 	}
 
-	template <typename TR, typename... ARGS>
+	template <typename TR, typename... Args>
 	void CreateScalarFunction(const string &name, vector<LogicalType> args, LogicalType ret_type,
-	                          TR (*udf_func)(ARGS...)) {
-		scalar_function_t function = UDFWrapper::CreateScalarFunction<TR, ARGS...>(name, args, ret_type, udf_func);
+	                          TR (*udf_func)(Args...)) {
+		scalar_function_t function = UDFWrapper::CreateScalarFunction<TR, Args...>(name, args, ret_type, udf_func);
 		UDFWrapper::RegisterFunction(name, args, ret_type, function, *context);
 	}
 
-	template <typename TR, typename... ARGS>
+	template <typename TR, typename... Args>
 	void CreateVectorizedFunction(const string &name, scalar_function_t udf_func,
 	                              LogicalType varargs = LogicalType::INVALID) {
-		UDFWrapper::RegisterFunction<TR, ARGS...>(name, udf_func, *context, std::move(varargs));
+		UDFWrapper::RegisterFunction<TR, Args...>(name, udf_func, *context, std::move(varargs));
 	}
 
 	void CreateVectorizedFunction(const string &name, vector<LogicalType> args, LogicalType ret_type,
 	                              scalar_function_t udf_func, LogicalType varargs = LogicalType::INVALID) {
-		UDFWrapper::RegisterFunction(name, std::move(args), std::move(ret_type), std::move(udf_func), *context,
+		UDFWrapper::RegisterFunction(name, std::move(args), std::move(ret_type), udf_func, *context,
 		                             std::move(varargs));
 	}
 
@@ -205,24 +206,23 @@ public:
 	}
 
 	template <typename UDF_OP, typename STATE, typename TR, typename TA>
-	void CreateAggregateFunction(const string &name, LogicalType ret_type, LogicalType input_type_a) {
+	void CreateAggregateFunction(const string &name, LogicalType ret_type, LogicalType input_typeA) {
 		AggregateFunction function =
-		    UDFWrapper::CreateAggregateFunction<UDF_OP, STATE, TR, TA>(name, ret_type, input_type_a);
+		    UDFWrapper::CreateAggregateFunction<UDF_OP, STATE, TR, TA>(name, ret_type, input_typeA);
 		UDFWrapper::RegisterAggrFunction(function, *context);
 	}
 
 	template <typename UDF_OP, typename STATE, typename TR, typename TA, typename TB>
-	void CreateAggregateFunction(const string &name, LogicalType ret_type, LogicalType input_type_a,
-	                             LogicalType input_type_b) {
+	void CreateAggregateFunction(const string &name, LogicalType ret_type, LogicalType input_typeA,
+	                             LogicalType input_typeB) {
 		AggregateFunction function =
-		    UDFWrapper::CreateAggregateFunction<UDF_OP, STATE, TR, TA, TB>(name, ret_type, input_type_a, input_type_b);
+		    UDFWrapper::CreateAggregateFunction<UDF_OP, STATE, TR, TA, TB>(name, ret_type, input_typeA, input_typeB);
 		UDFWrapper::RegisterAggrFunction(function, *context);
 	}
 
-	void CreateAggregateFunction(const string &name, const vector<LogicalType> &arguments,
-	                             const LogicalType &return_type, aggregate_size_t state_size,
-	                             aggregate_initialize_t initialize, aggregate_update_t update,
-	                             aggregate_combine_t combine, aggregate_finalize_t finalize,
+	void CreateAggregateFunction(const string &name, vector<LogicalType> arguments, LogicalType return_type,
+	                             aggregate_size_t state_size, aggregate_initialize_t initialize,
+	                             aggregate_update_t update, aggregate_combine_t combine, aggregate_finalize_t finalize,
 	                             aggregate_simple_update_t simple_update = nullptr,
 	                             bind_aggregate_function_t bind = nullptr,
 	                             aggregate_destructor_t destructor = nullptr) {
@@ -231,13 +231,12 @@ public:
 		                                        finalize, simple_update, bind, destructor);
 		UDFWrapper::RegisterAggrFunction(function, *context);
 	}
-	// NOLINTEND
 
 private:
 	unique_ptr<QueryResult> QueryParamsRecursive(const string &query, vector<Value> &values);
 
-	template <typename T, typename... ARGS>
-	unique_ptr<QueryResult> QueryParamsRecursive(const string &query, vector<Value> &values, T value, ARGS... args) {
+	template <typename T, typename... Args>
+	unique_ptr<QueryResult> QueryParamsRecursive(const string &query, vector<Value> &values, T value, Args... args) {
 		values.push_back(Value::CreateValue<T>(value));
 		return QueryParamsRecursive(query, values, args...);
 	}

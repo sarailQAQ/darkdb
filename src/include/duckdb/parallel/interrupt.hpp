@@ -11,7 +11,6 @@
 #include "duckdb/common/atomic.hpp"
 #include "duckdb/common/mutex.hpp"
 #include "duckdb/parallel/task.hpp"
-#include "duckdb/common/shared_ptr.hpp"
 #include <condition_variable>
 #include <memory>
 
@@ -45,9 +44,9 @@ public:
 	//! Default interrupt state will be set to InterruptMode::NO_INTERRUPTS and throw an error on use of Callback()
 	InterruptState();
 	//! Register the task to be interrupted and set mode to InterruptMode::TASK, the preferred way to handle interrupts
-	explicit InterruptState(weak_ptr<Task> task);
+	InterruptState(weak_ptr<Task> task);
 	//! Register signal state and set mode to InterruptMode::BLOCKING, used for code paths without Task.
-	explicit InterruptState(weak_ptr<InterruptDoneSignalState> done_signal);
+	InterruptState(weak_ptr<InterruptDoneSignalState> done_signal);
 
 	//! Perform the callback to indicate the Interrupt is over
 	DUCKDB_API void Callback() const;

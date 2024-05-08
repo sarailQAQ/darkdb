@@ -1,5 +1,4 @@
-#include "duckdb/optimizer/column_lifetime_analyzer.hpp"
-
+#include "duckdb/optimizer/column_lifetime_optimizer.hpp"
 #include "duckdb/planner/expression/bound_columnref_expression.hpp"
 #include "duckdb/planner/operator/logical_comparison_join.hpp"
 #include "duckdb/planner/operator/logical_filter.hpp"
@@ -140,12 +139,6 @@ void ColumnLifetimeAnalyzer::VisitOperator(LogicalOperator &op) {
 
 		// then generate the projection map
 		GenerateProjectionMap(op.children[0]->GetColumnBindings(), unused_bindings, filter.projection_map);
-		auto bindings = filter.GetColumnBindings();
-
-		if (bindings.empty()) {
-			return;
-		}
-
 		return;
 	}
 	default:

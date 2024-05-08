@@ -1,5 +1,4 @@
 #include "duckdb/common/compressed_file_system.hpp"
-#include "duckdb/common/numeric_utils.hpp"
 
 namespace duckdb {
 
@@ -38,9 +37,7 @@ int64_t CompressedFile::ReadData(void *buffer, int64_t remaining) {
 		// first check if there are input bytes available in the output buffers
 		if (stream_data.out_buff_start != stream_data.out_buff_end) {
 			// there is! copy it into the output buffer
-			auto available =
-			    MinValue<idx_t>(UnsafeNumericCast<idx_t>(remaining),
-			                    UnsafeNumericCast<idx_t>(stream_data.out_buff_end - stream_data.out_buff_start));
+			idx_t available = MinValue<idx_t>(remaining, stream_data.out_buff_end - stream_data.out_buff_start);
 			memcpy(data_ptr_t(buffer) + total_read, stream_data.out_buff_start, available);
 
 			// increment the total read variables as required
@@ -49,11 +46,11 @@ int64_t CompressedFile::ReadData(void *buffer, int64_t remaining) {
 			remaining -= available;
 			if (remaining == 0) {
 				// done! read enough
-				return UnsafeNumericCast<int64_t>(total_read);
+				return total_read;
 			}
 		}
 		if (!stream_wrapper) {
-			return UnsafeNumericCast<int64_t>(total_read);
+			return total_read;
 		}
 
 		// ran out of buffer: read more data from the child stream
@@ -66,11 +63,10 @@ int64_t CompressedFile::ReadData(void *buffer, int64_t remaining) {
 		if (stream_data.refresh && (stream_data.in_buff_end == stream_data.in_buff.get() + stream_data.in_buf_size)) {
 			auto bufrem = stream_data.in_buff_end - stream_data.in_buff_start;
 			// buffer not empty, move remaining bytes to the beginning
-			memmove(stream_data.in_buff.get(), stream_data.in_buff_start, UnsafeNumericCast<size_t>(bufrem));
+			memmove(stream_data.in_buff.get(), stream_data.in_buff_start, bufrem);
 			stream_data.in_buff_start = stream_data.in_buff.get();
 			// refill the rest of input buffer
-			auto sz = child_handle->Read(stream_data.in_buff_start + bufrem,
-			                             stream_data.in_buf_size - UnsafeNumericCast<idx_t>(bufrem));
+			auto sz = child_handle->Read(stream_data.in_buff_start + bufrem, stream_data.in_buf_size - bufrem);
 			stream_data.in_buff_end = stream_data.in_buff_start + bufrem + sz;
 			if (sz <= 0) {
 				stream_wrapper.reset();
@@ -96,7 +92,7 @@ int64_t CompressedFile::ReadData(void *buffer, int64_t remaining) {
 			stream_wrapper.reset();
 		}
 	}
-	return UnsafeNumericCast<int64_t>(total_read);
+	return total_read;
 }
 
 int64_t CompressedFile::WriteData(data_ptr_t buffer, int64_t nr_bytes) {
@@ -138,7 +134,7 @@ void CompressedFileSystem::Reset(FileHandle &handle) {
 
 int64_t CompressedFileSystem::GetFileSize(FileHandle &handle) {
 	auto &compressed_file = handle.Cast<CompressedFile>();
-	return NumericCast<int64_t>(compressed_file.child_handle->GetFileSize());
+	return compressed_file.child_handle->GetFileSize();
 }
 
 bool CompressedFileSystem::OnDiskFile(FileHandle &handle) {

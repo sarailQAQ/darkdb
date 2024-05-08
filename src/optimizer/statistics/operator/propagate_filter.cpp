@@ -1,4 +1,3 @@
-#include "duckdb/execution/expression_executor.hpp"
 #include "duckdb/function/scalar/generic_functions.hpp"
 #include "duckdb/optimizer/statistics_propagator.hpp"
 #include "duckdb/planner/expression/bound_between_expression.hpp"
@@ -16,18 +15,12 @@ static bool IsCompareDistinct(ExpressionType type) {
 }
 
 bool StatisticsPropagator::ExpressionIsConstant(Expression &expr, const Value &val) {
-	Value expr_value;
-	if (expr.GetExpressionClass() == ExpressionClass::BOUND_CONSTANT) {
-		expr_value = expr.Cast<BoundConstantExpression>().value;
-	} else if (expr.IsFoldable()) {
-		if (!ExpressionExecutor::TryEvaluateScalar(context, expr, expr_value)) {
-			return false;
-		}
-	} else {
+	if (expr.GetExpressionClass() != ExpressionClass::BOUND_CONSTANT) {
 		return false;
 	}
-	D_ASSERT(expr_value.type() == val.type());
-	return Value::NotDistinctFrom(expr_value, val);
+	auto &bound_constant = expr.Cast<BoundConstantExpression>();
+	D_ASSERT(bound_constant.value.type() == val.type());
+	return Value::NotDistinctFrom(bound_constant.value, val);
 }
 
 bool StatisticsPropagator::ExpressionIsConstantOrNull(Expression &expr, const Value &val) {
@@ -222,12 +215,12 @@ void StatisticsPropagator::UpdateFilterStatistics(Expression &condition) {
 }
 
 unique_ptr<NodeStatistics> StatisticsPropagator::PropagateStatistics(LogicalFilter &filter,
-                                                                     unique_ptr<LogicalOperator> &node_ptr) {
+                                                                     unique_ptr<LogicalOperator> *node_ptr) {
 	// first propagate to the child
 	node_stats = PropagateStatistics(filter.children[0]);
 	if (filter.children[0]->type == LogicalOperatorType::LOGICAL_EMPTY_RESULT) {
-		ReplaceWithEmptyResult(node_ptr);
-		return make_uniq<NodeStatistics>(0U, 0U);
+		ReplaceWithEmptyResult(*node_ptr);
+		return make_uniq<NodeStatistics>(0, 0);
 	}
 
 	// then propagate to each of the expressions
@@ -238,7 +231,7 @@ unique_ptr<NodeStatistics> StatisticsPropagator::PropagateStatistics(LogicalFilt
 		if (ExpressionIsConstant(*condition, Value::BOOLEAN(true))) {
 			// filter is always true; it is useless to execute it
 			// erase this condition
-			filter.expressions.erase_at(i);
+			filter.expressions.erase(filter.expressions.begin() + i);
 			i--;
 			if (filter.expressions.empty()) {
 				// just break. The physical filter planner will plan a projection instead
@@ -247,8 +240,8 @@ unique_ptr<NodeStatistics> StatisticsPropagator::PropagateStatistics(LogicalFilt
 		} else if (ExpressionIsConstant(*condition, Value::BOOLEAN(false)) ||
 		           ExpressionIsConstantOrNull(*condition, Value::BOOLEAN(false))) {
 			// filter is always false or null; this entire filter should be replaced by an empty result block
-			ReplaceWithEmptyResult(node_ptr);
-			return make_uniq<NodeStatistics>(0U, 0U);
+			ReplaceWithEmptyResult(*node_ptr);
+			return make_uniq<NodeStatistics>(0, 0);
 		} else {
 			// cannot prune this filter: propagate statistics from the filter
 			UpdateFilterStatistics(*condition);

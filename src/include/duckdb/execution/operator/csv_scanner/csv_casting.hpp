@@ -38,22 +38,13 @@ class CSVCast {
 	template <class OP, class T>
 	static bool TemplatedTryCastDecimalVector(const CSVReaderOptions &options, Vector &input_vector,
 	                                          Vector &result_vector, idx_t count, CastParameters &parameters,
-	                                          uint8_t width, uint8_t scale, idx_t &line_error) {
+	                                          uint8_t width, uint8_t scale) {
 		D_ASSERT(input_vector.GetType().id() == LogicalTypeId::VARCHAR);
 		bool all_converted = true;
-		auto &validity_mask = FlatVector::Validity(result_vector);
-		idx_t cur_line = 0;
 		UnaryExecutor::Execute<string_t, T>(input_vector, result_vector, count, [&](string_t input) {
 			T result;
 			if (!OP::Operation(input, result, parameters, width, scale)) {
-				if (all_converted) {
-					line_error = cur_line;
-				}
-				validity_mask.SetInvalid(cur_line);
 				all_converted = false;
-				cur_line++;
-			} else {
-				cur_line++;
 			}
 			return result;
 		});
@@ -77,20 +68,14 @@ class CSVCast {
 	template <class OP, class T>
 	static bool TemplatedTryCastDateVector(const map<LogicalTypeId, CSVOption<StrpTimeFormat>> &options,
 	                                       Vector &input_vector, Vector &result_vector, idx_t count,
-	                                       CastParameters &parameters, idx_t &line_error, bool nullify_error) {
+	                                       CastParameters &parameters, idx_t &line_error) {
 		D_ASSERT(input_vector.GetType().id() == LogicalTypeId::VARCHAR);
 		bool all_converted = true;
 		idx_t cur_line = 0;
-		auto &validity_mask = FlatVector::Validity(result_vector);
 		UnaryExecutor::Execute<string_t, T>(input_vector, result_vector, count, [&](string_t input) {
 			T result;
 			if (!OP::Operation(options, input, result, *parameters.error_message)) {
-				if (all_converted) {
-					line_error = cur_line;
-				}
-				if (nullify_error) {
-					validity_mask.SetInvalid(cur_line);
-				}
+				line_error = cur_line;
 				all_converted = false;
 			}
 			cur_line++;
@@ -101,17 +86,16 @@ class CSVCast {
 
 public:
 	static bool TryCastDateVector(const map<LogicalTypeId, CSVOption<StrpTimeFormat>> &options, Vector &input_vector,
-	                              Vector &result_vector, idx_t count, CastParameters &parameters, idx_t &line_error,
-	                              bool nullify_error = false) {
+	                              Vector &result_vector, idx_t count, CastParameters &parameters, idx_t &line_error) {
 		return TemplatedTryCastDateVector<TryCastDateOperator, date_t>(options, input_vector, result_vector, count,
-		                                                               parameters, line_error, nullify_error);
+		                                                               parameters, line_error);
 	}
 	static bool TryCastTimestampVector(const map<LogicalTypeId, CSVOption<StrpTimeFormat>> &options,
 	                                   Vector &input_vector, Vector &result_vector, idx_t count,
-	                                   CastParameters &parameters, bool nullify_error = false) {
+	                                   CastParameters &parameters) {
 		idx_t line_error;
-		return TemplatedTryCastDateVector<TryCastTimestampOperator, timestamp_t>(
-		    options, input_vector, result_vector, count, parameters, line_error, nullify_error);
+		return TemplatedTryCastDateVector<TryCastTimestampOperator, timestamp_t>(options, input_vector, result_vector,
+		                                                                         count, parameters, line_error);
 	}
 	static bool TryCastFloatingVectorCommaSeparated(const CSVReaderOptions &options, Vector &input_vector,
 	                                                Vector &result_vector, idx_t count, CastParameters &parameters,
@@ -127,25 +111,24 @@ public:
 			throw InternalException("Unimplemented physical type for floating");
 		}
 	}
-
 	static bool TryCastDecimalVectorCommaSeparated(const CSVReaderOptions &options, Vector &input_vector,
 	                                               Vector &result_vector, idx_t count, CastParameters &parameters,
-	                                               const LogicalType &result_type, idx_t &line_error) {
+	                                               const LogicalType &result_type) {
 		auto width = DecimalType::GetWidth(result_type);
 		auto scale = DecimalType::GetScale(result_type);
 		switch (result_type.InternalType()) {
 		case PhysicalType::INT16:
 			return TemplatedTryCastDecimalVector<TryCastToDecimalCommaSeparated, int16_t>(
-			    options, input_vector, result_vector, count, parameters, width, scale, line_error);
+			    options, input_vector, result_vector, count, parameters, width, scale);
 		case PhysicalType::INT32:
 			return TemplatedTryCastDecimalVector<TryCastToDecimalCommaSeparated, int32_t>(
-			    options, input_vector, result_vector, count, parameters, width, scale, line_error);
+			    options, input_vector, result_vector, count, parameters, width, scale);
 		case PhysicalType::INT64:
 			return TemplatedTryCastDecimalVector<TryCastToDecimalCommaSeparated, int64_t>(
-			    options, input_vector, result_vector, count, parameters, width, scale, line_error);
+			    options, input_vector, result_vector, count, parameters, width, scale);
 		case PhysicalType::INT128:
 			return TemplatedTryCastDecimalVector<TryCastToDecimalCommaSeparated, hugeint_t>(
-			    options, input_vector, result_vector, count, parameters, width, scale, line_error);
+			    options, input_vector, result_vector, count, parameters, width, scale);
 		default:
 			throw InternalException("Unimplemented physical type for decimal");
 		}

@@ -16,7 +16,7 @@ namespace duckdb {
 class DuckCatalog : public Catalog {
 public:
 	explicit DuckCatalog(AttachedDatabase &db);
-	~DuckCatalog() override;
+	~DuckCatalog();
 
 public:
 	bool IsDuckCatalog() override;

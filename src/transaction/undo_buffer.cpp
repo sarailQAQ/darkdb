@@ -142,9 +142,7 @@ void UndoBuffer::Cleanup() {
 	// possibly vacuum indexes
 	for (const auto &table : state.indexed_tables) {
 		table.second->info->indexes.Scan([&](Index &index) {
-			if (!index.IsUnknown()) {
-				index.Vacuum();
-			}
+			index.Vacuum();
 			return false;
 		});
 	}

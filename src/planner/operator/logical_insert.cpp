@@ -14,9 +14,7 @@ LogicalInsert::LogicalInsert(TableCatalogEntry &table, idx_t table_index)
 LogicalInsert::LogicalInsert(ClientContext &context, const unique_ptr<CreateInfo> table_info)
     : LogicalOperator(LogicalOperatorType::LOGICAL_INSERT),
       table(Catalog::GetEntry<TableCatalogEntry>(context, table_info->catalog, table_info->schema,
-                                                 table_info->Cast<CreateTableInfo>().table)) {
-	auto binder = Binder::CreateBinder(context);
-	bound_constraints = binder->BindConstraints(table);
+                                                 dynamic_cast<CreateTableInfo &>(*table_info).table)) {
 }
 
 idx_t LogicalInsert::EstimateCardinality(ClientContext &context) {

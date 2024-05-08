@@ -87,7 +87,7 @@ static bool TableHasPrimaryKey(TableCatalogEntry &table) {
 	for (auto &constraint : table.GetConstraints()) {
 		if (constraint->type == ConstraintType::UNIQUE) {
 			auto &unique = constraint->Cast<UniqueConstraint>();
-			if (unique.IsPrimaryKey()) {
+			if (unique.is_primary_key) {
 				return true;
 			}
 		}
@@ -127,15 +127,15 @@ void DuckDBTablesFunction(ClientContext &context, TableFunctionInput &data_p, Da
 		// database_name, VARCHAR
 		output.SetValue(col++, count, table.catalog.GetName());
 		// database_oid, BIGINT
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<int64_t>(table.catalog.GetOid())));
+		output.SetValue(col++, count, Value::BIGINT(table.catalog.GetOid()));
 		// schema_name, LogicalType::VARCHAR
 		output.SetValue(col++, count, Value(table.schema.name));
 		// schema_oid, LogicalType::BIGINT
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<int64_t>(table.schema.oid)));
+		output.SetValue(col++, count, Value::BIGINT(table.schema.oid));
 		// table_name, LogicalType::VARCHAR
 		output.SetValue(col++, count, Value(table.name));
 		// table_oid, LogicalType::BIGINT
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<int64_t>(table.oid)));
+		output.SetValue(col++, count, Value::BIGINT(table.oid));
 		// comment, LogicalType::VARCHAR
 		output.SetValue(col++, count, Value(table.comment));
 		// internal, LogicalType::BOOLEAN
@@ -145,21 +145,18 @@ void DuckDBTablesFunction(ClientContext &context, TableFunctionInput &data_p, Da
 		// has_primary_key, LogicalType::BOOLEAN
 		output.SetValue(col++, count, Value::BOOLEAN(TableHasPrimaryKey(table)));
 		// estimated_size, LogicalType::BIGINT
-
-		Value card_val = !storage_info.cardinality.IsValid()
-		                     ? Value()
-		                     : Value::BIGINT(NumericCast<int64_t>(storage_info.cardinality.GetIndex()));
+		Value card_val =
+		    storage_info.cardinality == DConstants::INVALID_INDEX ? Value() : Value::BIGINT(storage_info.cardinality);
 		output.SetValue(col++, count, card_val);
 		// column_count, LogicalType::BIGINT
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<int64_t>(table.GetColumns().LogicalColumnCount())));
+		output.SetValue(col++, count, Value::BIGINT(table.GetColumns().LogicalColumnCount()));
 		// index_count, LogicalType::BIGINT
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<int64_t>(storage_info.index_info.size())));
+		output.SetValue(col++, count, Value::BIGINT(storage_info.index_info.size()));
 		// check_constraint_count, LogicalType::BIGINT
-		output.SetValue(col++, count, Value::BIGINT(NumericCast<int64_t>(CheckConstraintCount(table))));
+		output.SetValue(col++, count, Value::BIGINT(CheckConstraintCount(table)));
 		// sql, LogicalType::VARCHAR
-		auto table_info = table.GetInfo();
-		table_info->catalog.clear();
-		output.SetValue(col++, count, Value(table_info->ToString()));
+		output.SetValue(col++, count, Value(table.ToSQL()));
+
 		count++;
 	}
 	output.SetCardinality(count);

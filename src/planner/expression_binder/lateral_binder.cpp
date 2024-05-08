@@ -81,6 +81,11 @@ static void ReduceColumnDepth(vector<CorrelatedColumnInfo> &columns,
 	}
 }
 
+static void ReduceExpressionSubquery(BoundSubqueryExpression &expr,
+                                     const vector<CorrelatedColumnInfo> &correlated_columns) {
+	ReduceColumnDepth(expr.binder->correlated_columns, correlated_columns);
+}
+
 class ExpressionDepthReducerRecursive : public BoundNodeVisitor {
 public:
 	explicit ExpressionDepthReducerRecursive(const vector<CorrelatedColumnInfo> &correlated)
@@ -106,13 +111,6 @@ public:
 		BoundNodeVisitor::VisitBoundTableRef(ref);
 	}
 
-	static void ReduceExpressionSubquery(BoundSubqueryExpression &expr,
-	                                     const vector<CorrelatedColumnInfo> &correlated_columns) {
-		ReduceColumnDepth(expr.binder->correlated_columns, correlated_columns);
-		ExpressionDepthReducerRecursive recursive(correlated_columns);
-		recursive.VisitBoundQueryNode(*expr.subquery);
-	}
-
 private:
 	const vector<CorrelatedColumnInfo> &correlated_columns;
 };
@@ -129,7 +127,9 @@ protected:
 	}
 
 	unique_ptr<Expression> VisitReplace(BoundSubqueryExpression &expr, unique_ptr<Expression> *expr_ptr) override {
-		ExpressionDepthReducerRecursive::ReduceExpressionSubquery(expr, correlated_columns);
+		ReduceExpressionSubquery(expr, correlated_columns);
+		ExpressionDepthReducerRecursive recursive(correlated_columns);
+		recursive.VisitBoundQueryNode(*expr.subquery);
 		return nullptr;
 	}
 

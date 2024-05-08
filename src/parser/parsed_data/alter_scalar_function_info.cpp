@@ -35,8 +35,4 @@ unique_ptr<AlterInfo> AddScalarFunctionOverloadInfo::Copy() const {
 	return make_uniq_base<AlterInfo, AddScalarFunctionOverloadInfo>(GetAlterEntryData(), new_overloads);
 }
 
-string AddScalarFunctionOverloadInfo::ToString() const {
-	throw NotImplementedException("NOT PARSABLE CURRENTLY");
-}
-
 } // namespace duckdb

@@ -66,14 +66,9 @@ bool BufferPool::AddToEvictionQueue(shared_ptr<BlockHandle> &handle) {
 	return false;
 }
 
-void BufferPool::UpdateUsedMemory(MemoryTag tag, int64_t size) {
-	if (size < 0) {
-		current_memory -= UnsafeNumericCast<idx_t>(-size);
-		memory_usage_per_tag[uint8_t(tag)] -= UnsafeNumericCast<idx_t>(-size);
-	} else {
-		current_memory += UnsafeNumericCast<idx_t>(size);
-		memory_usage_per_tag[uint8_t(tag)] += UnsafeNumericCast<idx_t>(size);
-	}
+void BufferPool::IncreaseUsedMemory(MemoryTag tag, idx_t size) {
+	current_memory += size;
+	memory_usage_per_tag[uint8_t(tag)] += size;
 }
 
 idx_t BufferPool::GetUsedMemory() const {
@@ -98,6 +93,7 @@ BufferPool::EvictionResult BufferPool::EvictBlocks(MemoryTag tag, idx_t extra_me
 	TempBufferPoolReservation r(tag, *this, extra_memory);
 
 	while (current_memory > memory_limit) {
+
 		// get a block to unpin from the queue
 		if (!queue->q.try_dequeue(node)) {
 			// we could not dequeue any eviction node, so we try one more time,

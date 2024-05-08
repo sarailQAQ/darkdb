@@ -14,17 +14,20 @@
 namespace duckdb {
 class ConjunctionFilter : public TableFilter {
 public:
-	explicit ConjunctionFilter(TableFilterType filter_type_p) : TableFilter(filter_type_p) {
+	ConjunctionFilter(TableFilterType filter_type_p) : TableFilter(filter_type_p) {
 	}
 
-	~ConjunctionFilter() override {
+	virtual ~ConjunctionFilter() {
 	}
 
 	//! The filters of this conjunction
 	vector<unique_ptr<TableFilter>> child_filters;
 
 public:
-	bool Equals(const TableFilter &other) const override {
+	virtual FilterPropagateResult CheckStatistics(BaseStatistics &stats) = 0;
+	virtual string ToString(const string &column_name) = 0;
+
+	virtual bool Equals(const TableFilter &other) const {
 		return TableFilter::Equals(other);
 	}
 };

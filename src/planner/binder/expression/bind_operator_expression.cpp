@@ -88,9 +88,7 @@ BindResult ExpressionBinder::BindExpression(OperatorExpression &op, idx_t depth)
 	if (op.type == ExpressionType::GROUPING_FUNCTION) {
 		return BindGroupingFunction(op, depth);
 	}
-
-	// Bind the children of the operator expression. We already create bound expressions.
-	// Only those children that trigger an error are not yet bound.
+	// bind the children of the operator expression
 	ErrorData error;
 	for (idx_t i = 0; i < op.children.size(); i++) {
 		BindChild(op.children[i], depth, error);
@@ -98,7 +96,6 @@ BindResult ExpressionBinder::BindExpression(OperatorExpression &op, idx_t depth)
 	if (error.HasError()) {
 		return BindResult(std::move(error));
 	}
-
 	// all children bound successfully
 	string function_name;
 	switch (op.type) {

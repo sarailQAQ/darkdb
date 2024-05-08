@@ -9,7 +9,6 @@
 #pragma once
 
 #include "duckdb/planner/logical_operator.hpp"
-#include "duckdb/planner/bound_constraint.hpp"
 
 namespace duckdb {
 class TableCatalogEntry;
@@ -24,7 +23,6 @@ public:
 	TableCatalogEntry &table;
 	idx_t table_index;
 	bool return_chunk;
-	vector<unique_ptr<BoundConstraint>> bound_constraints;
 
 public:
 	void Serialize(Serializer &serializer) const override;

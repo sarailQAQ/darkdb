@@ -87,7 +87,7 @@ private:
 template <class T>
 struct PatasScanState : public SegmentScanState {
 public:
-	using EXACT_TYPE = typename FloatingToExact<T>::TYPE;
+	using EXACT_TYPE = typename FloatingToExact<T>::type;
 
 	explicit PatasScanState(ColumnSegment &segment) : segment(segment), count(segment.count) {
 		auto &buffer_manager = BufferManager::GetBufferManager(segment.db);
@@ -174,7 +174,7 @@ public:
 public:
 	//! Skip the next 'skip_count' values, we don't store the values
 	void Skip(ColumnSegment &segment, idx_t skip_count) {
-		using EXACT_TYPE = typename FloatingToExact<T>::TYPE;
+		using EXACT_TYPE = typename FloatingToExact<T>::type;
 
 		if (total_value_count != 0 && !GroupFinished()) {
 			// Finish skipping the current group
@@ -210,7 +210,7 @@ unique_ptr<SegmentScanState> PatasInitScan(ColumnSegment &segment) {
 template <class T>
 void PatasScanPartial(ColumnSegment &segment, ColumnScanState &state, idx_t scan_count, Vector &result,
                       idx_t result_offset) {
-	using EXACT_TYPE = typename FloatingToExact<T>::TYPE;
+	using EXACT_TYPE = typename FloatingToExact<T>::type;
 	auto &scan_state = (PatasScanState<T> &)*state.scan_state;
 
 	// Get the pointer to the result values

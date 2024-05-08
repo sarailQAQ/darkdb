@@ -29,7 +29,7 @@ public:
 	//! Create a DuckIndexEntry
 	DuckIndexEntry(Catalog &catalog, SchemaCatalogEntry &schema, CreateIndexInfo &info);
 
-	unique_ptr<CatalogEntry> Copy(ClientContext &context) const override;
+	virtual unique_ptr<CatalogEntry> Copy(ClientContext &context) const override;
 
 	//! The indexed table information
 	shared_ptr<IndexDataTableInfo> info;

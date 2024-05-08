@@ -36,8 +36,12 @@ struct BoundCreateTableInfo {
 	ColumnDependencyManager column_dependency_manager;
 	//! List of constraints on the table
 	vector<unique_ptr<Constraint>> constraints;
+	//! List of bound constraints on the table
+	vector<unique_ptr<BoundConstraint>> bound_constraints;
+	//! Bound default values
+	vector<unique_ptr<Expression>> bound_defaults;
 	//! Dependents of the table (in e.g. default values)
-	LogicalDependencyList dependencies;
+	DependencyList dependencies;
 	//! The existing table data on disk (if any)
 	unique_ptr<PersistentTableData> data;
 	//! CREATE TABLE from QUERY
@@ -47,7 +51,7 @@ struct BoundCreateTableInfo {
 
 	CreateTableInfo &Base() {
 		D_ASSERT(base);
-		return base->Cast<CreateTableInfo>();
+		return (CreateTableInfo &)*base;
 	}
 };
 

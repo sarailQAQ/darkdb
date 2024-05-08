@@ -4,7 +4,6 @@
 #include "duckdb/planner/expression/bound_aggregate_expression.hpp"
 #include "duckdb/planner/expression/bound_columnref_expression.hpp"
 #include "duckdb/planner/expression/bound_constant_expression.hpp"
-#include "duckdb/planner/expression/bound_expanded_expression.hpp"
 #include "duckdb/planner/expression/bound_function_expression.hpp"
 #include "duckdb/planner/expression/bound_parameter_expression.hpp"
 #include "duckdb/planner/expression_binder/aggregate_binder.hpp"
@@ -48,15 +47,10 @@ BindResult SelectBinder::BindUnnest(FunctionExpression &function, idx_t depth, b
 	if (depth > 0) {
 		return BindResult(BinderException(function, "UNNEST() for correlated expressions is not supported yet"));
 	}
-
 	ErrorData error;
 	if (function.children.empty()) {
 		return BindResult(BinderException(function, "UNNEST() requires a single argument"));
 	}
-	if (inside_window) {
-		return BindResult(BinderException(function, UnsupportedUnnestMessage()));
-	}
-
 	idx_t max_depth = 1;
 	if (function.children.size() != 1) {
 		bool has_parameter = false;
@@ -71,7 +65,7 @@ BindResult SelectBinder::BindUnnest(FunctionExpression &function, idx_t depth, b
 			if (!function.children[i]->IsScalar()) {
 				break;
 			}
-			auto alias = StringUtil::Lower(function.children[i]->alias);
+			auto alias = function.children[i]->alias;
 			BindChild(function.children[i], depth, error);
 			if (error.HasError()) {
 				return BindResult(std::move(error));
@@ -225,7 +219,8 @@ BindResult SelectBinder::BindUnnest(FunctionExpression &function, idx_t depth, b
 				break;
 			}
 		}
-		unnest_expr = make_uniq<BoundExpandedExpression>(std::move(struct_expressions));
+		expanded_expressions = std::move(struct_expressions);
+		unnest_expr = make_uniq<BoundConstantExpression>(Value(42));
 	}
 	return BindResult(std::move(unnest_expr));
 }

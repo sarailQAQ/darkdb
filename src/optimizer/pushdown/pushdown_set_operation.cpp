@@ -40,7 +40,7 @@ unique_ptr<LogicalOperator> FilterPushdown::PushdownSetOperation(unique_ptr<Logi
 	}
 
 	// pushdown into set operation, we can duplicate the condition and pushdown the expressions into both sides
-	FilterPushdown left_pushdown(optimizer, convert_mark_joins), right_pushdown(optimizer, convert_mark_joins);
+	FilterPushdown left_pushdown(optimizer), right_pushdown(optimizer);
 	for (idx_t i = 0; i < filters.size(); i++) {
 		// first create a copy of the filter
 		auto right_filter = make_uniq<Filter>();
@@ -69,7 +69,7 @@ unique_ptr<LogicalOperator> FilterPushdown::PushdownSetOperation(unique_ptr<Logi
 		// both empty: return empty result
 		return make_uniq<LogicalEmptyResult>(std::move(op));
 	}
-	if (left_empty && setop.setop_all) {
+	if (left_empty) {
 		// left child is empty result
 		switch (op->type) {
 		case LogicalOperatorType::LOGICAL_UNION:
@@ -88,7 +88,7 @@ unique_ptr<LogicalOperator> FilterPushdown::PushdownSetOperation(unique_ptr<Logi
 		default:
 			throw InternalException("Unsupported set operation");
 		}
-	} else if (right_empty && setop.setop_all) {
+	} else if (right_empty) {
 		// right child is empty result
 		switch (op->type) {
 		case LogicalOperatorType::LOGICAL_UNION:

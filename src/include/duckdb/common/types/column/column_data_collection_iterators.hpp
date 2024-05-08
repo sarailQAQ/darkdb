@@ -43,17 +43,17 @@ private:
 	};
 
 public:
-	ColumnDataChunkIterator begin() { // NOLINT: match stl API
+	ColumnDataChunkIterator begin() {
 		return ColumnDataChunkIterator(&collection, column_ids);
 	}
-	ColumnDataChunkIterator end() { // NOLINT: match stl API
+	ColumnDataChunkIterator end() {
 		return ColumnDataChunkIterator(nullptr, vector<column_t>());
 	}
 };
 
 class ColumnDataRowIterationHelper {
 public:
-	DUCKDB_API explicit ColumnDataRowIterationHelper(const ColumnDataCollection &collection);
+	DUCKDB_API ColumnDataRowIterationHelper(const ColumnDataCollection &collection);
 
 private:
 	const ColumnDataCollection &collection;
@@ -79,8 +79,8 @@ private:
 	};
 
 public:
-	DUCKDB_API ColumnDataRowIterator begin(); // NOLINT: match stl API
-	DUCKDB_API ColumnDataRowIterator end();   // NOLINT: match stl API
+	DUCKDB_API ColumnDataRowIterator begin();
+	DUCKDB_API ColumnDataRowIterator end();
 };
 
 } // namespace duckdb

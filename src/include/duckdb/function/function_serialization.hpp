@@ -74,7 +74,7 @@ public:
 	template <class FUNC, class CATALOG_ENTRY>
 	static pair<FUNC, unique_ptr<FunctionData>> Deserialize(Deserializer &deserializer, CatalogType catalog_type,
 	                                                        vector<unique_ptr<Expression>> &children,
-	                                                        LogicalType return_type) { // NOLINT: clang-tidy bug
+	                                                        LogicalType return_type) {
 		auto &context = deserializer.Get<ClientContext &>();
 		auto entry = DeserializeBase<FUNC, CATALOG_ENTRY>(deserializer, catalog_type);
 		auto &function = entry.first;

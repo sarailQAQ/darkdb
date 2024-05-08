@@ -1,4 +1,3 @@
-
 #include "duckdb/optimizer/rule/conjunction_simplification.hpp"
 
 #include "duckdb/execution/expression_executor.hpp"
@@ -20,7 +19,7 @@ unique_ptr<Expression> ConjunctionSimplificationRule::RemoveExpression(BoundConj
 	for (idx_t i = 0; i < conj.children.size(); i++) {
 		if (conj.children[i].get() == &expr) {
 			// erase the expression
-			conj.children.erase_at(i);
+			conj.children.erase(conj.children.begin() + i);
 			break;
 		}
 	}

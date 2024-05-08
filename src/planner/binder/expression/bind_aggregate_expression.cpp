@@ -95,17 +95,14 @@ BindResult BaseSelectBinder::BindAggregate(FunctionExpression &aggr, AggregateFu
 
 	// Handle ordered-set aggregates by moving the single ORDER BY expression to the front of the children.
 	//	https://www.postgresql.org/docs/current/functions-aggregate.html#FUNCTIONS-ORDEREDSET-TABLE
-	// We also have to handle ORDER BY in the argument list, so note how many arguments we should have
-	// and only inject the ordering expression if there are too few.
-	idx_t ordered_set_agg = 0;
+	bool ordered_set_agg = false;
 	bool negate_fractions = false;
 	if (aggr.order_bys && aggr.order_bys->orders.size() == 1) {
 		const auto &func_name = aggr.function_name;
-		if (func_name == "mode") {
-			ordered_set_agg = 1;
-		} else if (func_name == "quantile_cont" || func_name == "quantile_disc") {
-			ordered_set_agg = 2;
+		ordered_set_agg = (func_name == "quantile_cont" || func_name == "quantile_disc" ||
+		                   (func_name == "mode" && aggr.children.empty()));
 
+		if (ordered_set_agg) {
 			auto &config = DBConfig::GetConfig(context);
 			const auto &order = aggr.order_bys->orders[0];
 			const auto sense =
@@ -114,11 +111,10 @@ BindResult BaseSelectBinder::BindAggregate(FunctionExpression &aggr, AggregateFu
 		}
 	}
 
-	for (idx_t i = 0; i < aggr.children.size(); ++i) {
-		auto &child = aggr.children[i];
+	for (auto &child : aggr.children) {
 		aggregate_binder.BindChild(child, 0, error);
 		// We have to negate the fractions for PERCENTILE_XXXX DESC
-		if (!error.HasError() && ordered_set_agg && i == aggr.children.size() - 1) {
+		if (!error.HasError() && ordered_set_agg) {
 			NegatePercentileFractions(context, child, negate_fractions);
 		}
 	}
@@ -185,17 +181,14 @@ BindResult BaseSelectBinder::BindAggregate(FunctionExpression &aggr, AggregateFu
 
 	if (ordered_set_agg) {
 		const bool order_sensitive = (aggr.function_name == "mode");
-		// Inject missing ordering arguments
-		if (aggr.children.size() < ordered_set_agg) {
-			for (auto &order : aggr.order_bys->orders) {
-				auto &child = BoundExpression::GetExpression(*order.expression);
-				types.push_back(child->return_type);
-				arguments.push_back(child->return_type);
-				if (order_sensitive) {
-					children.push_back(child->Copy());
-				} else {
-					children.push_back(std::move(child));
-				}
+		for (auto &order : aggr.order_bys->orders) {
+			auto &child = BoundExpression::GetExpression(*order.expression);
+			types.push_back(child->return_type);
+			arguments.push_back(child->return_type);
+			if (order_sensitive) {
+				children.push_back(child->Copy());
+			} else {
+				children.push_back(std::move(child));
 			}
 		}
 		if (!order_sensitive) {
@@ -212,13 +205,13 @@ BindResult BaseSelectBinder::BindAggregate(FunctionExpression &aggr, AggregateFu
 
 	// bind the aggregate
 	FunctionBinder function_binder(context);
-	auto best_function = function_binder.BindFunction(func.name, func.functions, types, error);
-	if (!best_function.IsValid()) {
+	idx_t best_function = function_binder.BindFunction(func.name, func.functions, types, error);
+	if (best_function == DConstants::INVALID_INDEX) {
 		error.AddQueryLocation(aggr);
 		error.Throw();
 	}
 	// found a matching function!
-	auto bound_function = func.functions.GetFunctionByOffset(best_function.GetIndex());
+	auto bound_function = func.functions.GetFunctionByOffset(best_function);
 
 	// Bind any sort columns, unless the aggregate is order-insensitive
 	unique_ptr<BoundOrderModifier> order_bys;
@@ -230,22 +223,6 @@ BindResult BaseSelectBinder::BindAggregate(FunctionExpression &aggr, AggregateFu
 			const auto sense = config.ResolveOrder(order.type);
 			const auto null_order = config.ResolveNullOrder(sense, order.null_order);
 			order_bys->orders.emplace_back(sense, null_order, std::move(order_expr));
-		}
-	}
-
-	// If the aggregate is DISTINCT then the ORDER BYs need to be arguments.
-	if (aggr.distinct && order_bys) {
-		for (const auto &order_by : order_bys->orders) {
-			bool is_arg = false;
-			for (const auto &child : children) {
-				if (order_by.expression->Equals(*child)) {
-					is_arg = true;
-					break;
-				}
-			}
-			if (!is_arg) {
-				throw BinderException("In a DISTINCT aggregate, ORDER BY expressions must appear in the argument list");
-			}
 		}
 	}
 

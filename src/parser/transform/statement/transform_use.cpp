@@ -11,10 +11,9 @@ unique_ptr<SetStatement> Transformer::TransformUse(duckdb_libpgquery::PGUseStmt 
 	}
 	string name;
 	if (IsInvalidSchema(qualified_name.schema)) {
-		name = KeywordHelper::WriteOptionallyQuoted(qualified_name.name, '"');
+		name = qualified_name.name;
 	} else {
-		name = KeywordHelper::WriteOptionallyQuoted(qualified_name.schema, '"') + "." +
-		       KeywordHelper::WriteOptionallyQuoted(qualified_name.name, '"');
+		name = qualified_name.schema + "." + qualified_name.name;
 	}
 	auto name_expr = make_uniq<ConstantExpression>(Value(name));
 	return make_uniq<SetVariableStatement>("schema", std::move(name_expr), SetScope::AUTOMATIC);

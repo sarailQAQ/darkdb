@@ -2,13 +2,13 @@
 
 namespace duckdb {
 
-template <bool IS_ENABLED>
+template <bool ENABLED>
 struct MemorySafety {
 #ifdef DEBUG
 	// In DEBUG mode safety is always on
-	static constexpr bool ENABLED = true;
+	static constexpr bool enabled = true;
 #else
-	static constexpr bool ENABLED = IS_ENABLED;
+	static constexpr bool enabled = ENABLED;
 #endif
 };
 

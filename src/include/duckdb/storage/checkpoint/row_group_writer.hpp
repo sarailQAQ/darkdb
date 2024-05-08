@@ -56,9 +56,10 @@ public:
 	MetadataWriter &table_data_writer;
 
 public:
-	void WriteColumnDataPointers(ColumnCheckpointState &column_checkpoint_state, Serializer &serializer) override;
+	virtual void WriteColumnDataPointers(ColumnCheckpointState &column_checkpoint_state,
+	                                     Serializer &serializer) override;
 
-	MetadataWriter &GetPayloadWriter() override;
+	virtual MetadataWriter &GetPayloadWriter() override;
 };
 
 } // namespace duckdb

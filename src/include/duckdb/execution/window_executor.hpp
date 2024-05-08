@@ -39,7 +39,6 @@ struct WindowInputExpression {
 			chunk.Reset();
 			executor.Execute(input_chunk, chunk);
 			chunk.Verify();
-			chunk.Flatten();
 		}
 	}
 
@@ -131,7 +130,7 @@ public:
 	}
 	template <class TARGET>
 	const TARGET &Cast() const {
-		DynamicCastCheck<TARGET>(this);
+		D_ASSERT(dynamic_cast<const TARGET *>(this));
 		return reinterpret_cast<const TARGET &>(*this);
 	}
 };

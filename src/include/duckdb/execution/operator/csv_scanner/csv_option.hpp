@@ -24,12 +24,10 @@ class Deserializer;
 //! Wrapper for CSV Options that can be manually set by the user
 //! It is important to make this difference for options that can be automatically sniffed AND manually set.
 template <typename T>
-struct CSVOption { // NOLINT: work-around bug in clang-tidy
+struct CSVOption {
 public:
-	CSVOption(T value_p) : value(value_p) { // NOLINT: allow implicit conversion from value
-	}
-	CSVOption(T value_p, bool set_by_user_p) : value(value_p), set_by_user(set_by_user_p) {
-	}
+	CSVOption(T value_p) : value(value_p) {};
+	CSVOption(T value_p, bool set_by_user_p) : value(value_p), set_by_user(set_by_user_p) {};
 	CSVOption() {};
 
 	//! Sets value.
@@ -75,7 +73,7 @@ public:
 		return value != other;
 	}
 	//! Returns CSV Option value
-	inline const T GetValue() const {
+	const T GetValue() const {
 		return value;
 	}
 	bool IsSetByUser() const {

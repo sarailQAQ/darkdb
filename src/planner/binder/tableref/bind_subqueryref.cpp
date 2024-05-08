@@ -10,8 +10,8 @@ unique_ptr<BoundTableRef> Binder::Bind(SubqueryRef &ref, optional_ptr<CommonTabl
 	if (cte) {
 		binder->bound_ctes.insert(*cte);
 	}
-	auto subquery = binder->BindNode(*ref.subquery->node);
 	binder->alias = ref.alias.empty() ? "unnamed_subquery" : ref.alias;
+	auto subquery = binder->BindNode(*ref.subquery->node);
 	idx_t bind_index = subquery->GetRootIndex();
 	string subquery_alias;
 	if (ref.alias.empty()) {

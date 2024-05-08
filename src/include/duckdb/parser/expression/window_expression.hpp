@@ -197,16 +197,6 @@ public:
 		default:
 			throw InternalException("Unrecognized TO in WindowExpression");
 		}
-		if (entry.exclude_clause != WindowExcludeMode::NO_OTHER) {
-			// if we have an explicit EXCLUDE we always need to fill in from/to
-			if (from.empty()) {
-				from = "UNBOUNDED PRECEDING";
-			}
-			if (to.empty()) {
-				to = "CURRENT ROW";
-				units = "RANGE";
-			}
-		}
 
 		if (!from.empty() || !to.empty()) {
 			result += sep + units;

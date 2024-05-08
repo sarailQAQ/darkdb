@@ -10,9 +10,8 @@
 
 #include "duckdb/common/constants.hpp"
 #include "duckdb/common/exception.hpp"
-#include "duckdb/common/numeric_utils.hpp"
-#include "duckdb/common/set.hpp"
 #include "duckdb/common/vector.hpp"
+#include "duckdb/common/set.hpp"
 
 #include <cstring>
 
@@ -41,22 +40,22 @@ public:
 
 	static uint8_t GetHexValue(char c) {
 		if (c >= '0' && c <= '9') {
-			return UnsafeNumericCast<uint8_t>(c - '0');
+			return c - '0';
 		}
 		if (c >= 'a' && c <= 'f') {
-			return UnsafeNumericCast<uint8_t>(c - 'a' + 10);
+			return c - 'a' + 10;
 		}
 		if (c >= 'A' && c <= 'F') {
-			return UnsafeNumericCast<uint8_t>(c - 'A' + 10);
+			return c - 'A' + 10;
 		}
-		throw InvalidInputException("Invalid input for hex digit: %s", string(1, c));
+		throw InvalidInputException("Invalid input for hex digit: %s", string(c, 1));
 	}
 
 	static uint8_t GetBinaryValue(char c) {
 		if (c >= '0' && c <= '1') {
-			return UnsafeNumericCast<uint8_t>(c - '0');
+			return c - '0';
 		}
-		throw InvalidInputException("Invalid input for binary digit: %s", string(1, c));
+		throw InvalidInputException("Invalid input for binary digit: %s", string(c, 1));
 	}
 
 	static bool CharacterIsSpace(char c) {
@@ -149,8 +148,8 @@ public:
 
 	//! Join multiple items of container with given size, transformed to string
 	//! using function, into one string using the given separator
-	template <typename C, typename S, typename FUNC>
-	static string Join(const C &input, S count, const string &separator, FUNC f) {
+	template <typename C, typename S, typename Func>
+	static string Join(const C &input, S count, const string &separator, Func f) {
 		// The result
 		std::string result;
 
@@ -189,8 +188,8 @@ public:
 	DUCKDB_API static bool CILessThan(const string &l1, const string &l2);
 
 	//! Format a string using printf semantics
-	template <typename... ARGS>
-	static string Format(const string fmt_str, ARGS... params) {
+	template <typename... Args>
+	static string Format(const string fmt_str, Args... params) {
 		return Exception::ConstructMessage(fmt_str, params...);
 	}
 

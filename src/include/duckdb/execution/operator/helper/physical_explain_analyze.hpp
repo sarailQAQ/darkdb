@@ -18,7 +18,7 @@ public:
 	static constexpr const PhysicalOperatorType TYPE = PhysicalOperatorType::EXPLAIN_ANALYZE;
 
 public:
-	explicit PhysicalExplainAnalyze(vector<LogicalType> types)
+	PhysicalExplainAnalyze(vector<LogicalType> types)
 	    : PhysicalOperator(PhysicalOperatorType::EXPLAIN_ANALYZE, std::move(types), 1) {
 	}
 

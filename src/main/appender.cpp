@@ -36,7 +36,7 @@ void BaseAppender::Destructor() {
 	// wrapped in a try/catch because Close() can throw if the table was dropped in the meantime
 	try {
 		Close();
-	} catch (...) { // NOLINT
+	} catch (...) {
 	}
 }
 
@@ -376,9 +376,7 @@ void Appender::FlushInternal(ColumnDataCollection &collection) {
 }
 
 void InternalAppender::FlushInternal(ColumnDataCollection &collection) {
-	auto binder = Binder::CreateBinder(context);
-	auto bound_constraints = binder->BindConstraints(table);
-	table.GetStorage().LocalAppend(table, context, collection, bound_constraints);
+	table.GetStorage().LocalAppend(table, context, collection);
 }
 
 void BaseAppender::Close() {

@@ -234,8 +234,7 @@ static bool IntegerCastLoop(const char *buf, idx_t len, T &result, bool strict) 
 					if (!StringUtil::CharacterIsDigit(buf[pos])) {
 						break;
 					}
-					if (!OP::template HandleDecimal<T, NEGATIVE, ALLOW_EXPONENT>(
-					        result, UnsafeNumericCast<uint8_t>(buf[pos] - '0'))) {
+					if (!OP::template HandleDecimal<T, NEGATIVE, ALLOW_EXPONENT>(result, buf[pos] - '0')) {
 						return false;
 					}
 					pos++;
@@ -297,7 +296,7 @@ static bool IntegerCastLoop(const char *buf, idx_t len, T &result, bool strict) 
 			}
 			return false;
 		}
-		auto digit = UnsafeNumericCast<uint8_t>(buf[pos++] - '0');
+		uint8_t digit = buf[pos++] - '0';
 		if (!OP::template HandleDigit<T, NEGATIVE>(result, digit)) {
 			return false;
 		}
@@ -331,9 +330,9 @@ static bool IntegerHexCastLoop(const char *buf, idx_t len, T &result, bool stric
 		}
 		uint8_t digit;
 		if (current_char >= 'a') {
-			digit = UnsafeNumericCast<uint8_t>(current_char - 'a' + 10);
+			digit = current_char - 'a' + 10;
 		} else {
-			digit = UnsafeNumericCast<uint8_t>(current_char - '0');
+			digit = current_char - '0';
 		}
 		pos++;
 

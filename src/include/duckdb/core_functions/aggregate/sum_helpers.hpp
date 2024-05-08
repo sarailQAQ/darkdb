@@ -61,19 +61,7 @@ struct RegularAdd {
 
 	template <class STATE, class T>
 	static void AddConstant(STATE &state, T input, idx_t count) {
-		state.value += input * int64_t(count);
-	}
-};
-
-struct HugeintAdd {
-	template <class STATE, class T>
-	static void AddNumber(STATE &state, T input) {
-		state.value = Hugeint::Add(state.value, input);
-	}
-
-	template <class STATE, class T>
-	static void AddConstant(STATE &state, T input, idx_t count) {
-		AddNumber(state, Hugeint::Multiply(input, UnsafeNumericCast<int64_t>(count)));
+		state.value += input * count;
 	}
 };
 
@@ -89,7 +77,7 @@ struct KahanAdd {
 	}
 };
 
-struct AddToHugeint {
+struct HugeintAdd {
 	static void AddValue(hugeint_t &result, uint64_t value, int positive) {
 		// integer summation taken from Tim Gubner et al. - Efficient Query Processing
 		// with Optimistically Compressed Hash Tables & Strings in the USSR
@@ -135,7 +123,7 @@ struct AddToHugeint {
 					AddValue(state.value, uint64_t(input), input >= 0);
 				}
 			} else {
-				hugeint_t addition = hugeint_t(input) * Hugeint::Convert(count);
+				hugeint_t addition = hugeint_t(input) * count;
 				state.value += addition;
 			}
 		}
