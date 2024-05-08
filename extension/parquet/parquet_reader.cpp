@@ -19,7 +19,6 @@
 #include "duckdb/common/file_system.hpp"
 #include "duckdb/common/hive_partitioning.hpp"
 #include "duckdb/common/pair.hpp"
-#include "duckdb/common/helper.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/common/types/date.hpp"
 #include "duckdb/common/vector_operations/vector_operations.hpp"
@@ -50,7 +49,7 @@ using duckdb_parquet::format::Type;
 
 static unique_ptr<duckdb_apache::thrift::protocol::TProtocol>
 CreateThriftFileProtocol(Allocator &allocator, FileHandle &file_handle, bool prefetch_mode) {
-	auto transport = std::make_shared<ThriftFileTransport>(allocator, file_handle, prefetch_mode);
+	auto transport = make_shared<ThriftFileTransport>(allocator, file_handle, prefetch_mode);
 	return make_uniq<duckdb_apache::thrift::protocol::TCompactProtocolT<ThriftFileTransport>>(std::move(transport));
 }
 
@@ -113,7 +112,7 @@ LoadMetadata(Allocator &allocator, FileHandle &file_handle,
 		metadata->read(file_proto.get());
 	}
 
-	return make_shared_ptr<ParquetFileMetadataCache>(std::move(metadata), current_time);
+	return make_shared<ParquetFileMetadataCache>(std::move(metadata), current_time);
 }
 
 LogicalType ParquetReader::DeriveLogicalType(const SchemaElement &s_ele, bool binary_as_string) {
@@ -243,14 +242,12 @@ LogicalType ParquetReader::DeriveLogicalType(const SchemaElement &s_ele, bool bi
 			return LogicalType::INTERVAL;
 		case ConvertedType::JSON:
 			return LogicalType::VARCHAR;
-		case ConvertedType::NULL_TYPE:
-			return LogicalTypeId::SQLNULL;
 		case ConvertedType::MAP:
 		case ConvertedType::MAP_KEY_VALUE:
 		case ConvertedType::LIST:
 		case ConvertedType::BSON:
 		default:
-			throw IOException("Unsupported converted type (%d)", (int32_t)s_ele.converted_type);
+			throw IOException("Unsupported converted type");
 		}
 	} else {
 		// no converted type set

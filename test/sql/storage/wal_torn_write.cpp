@@ -7,7 +7,7 @@ using namespace duckdb;
 using namespace std;
 
 static idx_t GetWALFileSize(FileSystem &fs, const string &path) {
-	auto handle = fs.OpenFile(path, FileFlags::FILE_FLAGS_READ);
+	auto handle = fs.OpenFile(path, FileFlags::FILE_FLAGS_READ, FileLockType::NO_LOCK);
 	return fs.GetFileSize(*handle);
 }
 

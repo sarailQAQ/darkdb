@@ -62,4 +62,4 @@ std::ostream& operator<<(std::ostream& o, const StringPiece& p) {
   return o;
 }
 
-}  // namespace re2
+}  // namespace duckdb_re2

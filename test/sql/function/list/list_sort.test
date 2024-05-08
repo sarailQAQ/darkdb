@@ -451,14 +451,15 @@ order by id;
 1	[10, 15]
 2	[10]
 
-statement error
+query II
 select id, list(distinct foo order by bar) from (
   values (1, '10', 2), (1, '15', 1), (2, '10', 1)
 ) v (id, foo, bar)
 group by all
 order by id;
 ----
-Binder Error: In a DISTINCT aggregate, ORDER BY expressions must appear in the argument list
+1	[15, 10]
+2	[10]
 
 # bug fixes test for #5694
 

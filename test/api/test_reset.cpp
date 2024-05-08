@@ -82,20 +82,17 @@ OptionValueSet &GetValueForOption(const string &name) {
 	    {"file_search_path", {"test"}},
 	    {"force_compression", {"uncompressed", "Uncompressed"}},
 	    {"home_directory", {"test"}},
-	    {"allow_extensions_metadata_mismatch", {"true"}},
 	    {"integer_division", {true}},
 	    {"extension_directory", {"test"}},
 	    {"immediate_transaction_mode", {true}},
 	    {"max_expression_depth", {50}},
 	    {"max_memory", {"4.0 GiB"}},
-	    {"max_temp_directory_size", {"10.0 GiB"}},
 	    {"memory_limit", {"4.0 GiB"}},
 	    {"ordered_aggregate_threshold", {Value::UBIGINT(idx_t(1) << 12)}},
 	    {"null_order", {"nulls_first"}},
 	    {"perfect_ht_threshold", {0}},
 	    {"pivot_filter_threshold", {999}},
 	    {"pivot_limit", {999}},
-	    {"partitioned_write_flush_threshold", {123}},
 	    {"preserve_identifier_case", {false}},
 	    {"preserve_insertion_order", {false}},
 	    {"profile_output", {"test"}},
@@ -127,7 +124,6 @@ bool OptionIsExcludedFromTest(const string &name) {
 	    "disabled_filesystems",      // cant change this while db is running
 	    "enable_external_access",    // cant change this while db is running
 	    "allow_unsigned_extensions", // cant change this while db is running
-	    "allow_unredacted_secrets",  // cant change this while db is running
 	    "log_query_path",
 	    "password",
 	    "username",
@@ -143,12 +139,12 @@ bool ValueEqual(const Value &left, const Value &right) {
 	return Value::NotDistinctFrom(left, right);
 }
 
-void RequireValueEqual(const ConfigurationOption &op, const Value &left, const Value &right, int line) {
+void RequireValueEqual(ConfigurationOption *op, const Value &left, const Value &right, int line) {
 	if (ValueEqual(left, right)) {
 		return;
 	}
 	auto error = StringUtil::Format("\nLINE[%d] (Option:%s) | Expected left:'%s' and right:'%s' to be equal", line,
-	                                op.name, left.ToString(), right.ToString());
+	                                op->name, left.ToString(), right.ToString());
 	cerr << error << endl;
 	REQUIRE(false);
 }
@@ -210,7 +206,7 @@ TEST_CASE("Test RESET statement for ClientConfig options", "[api]") {
 			}
 			// Get the value of the option again
 			auto changed_value = op->get_setting(*con.context);
-			REQUIRE_VALUE_EQUAL(*op, changed_value, value_pair.output);
+			REQUIRE_VALUE_EQUAL(op, changed_value, value_pair.output);
 
 			if (op->reset_local) {
 				op->reset_local(*con.context);
@@ -220,7 +216,7 @@ TEST_CASE("Test RESET statement for ClientConfig options", "[api]") {
 
 			// Get the reset value of the option
 			auto reset_value = op->get_setting(*con.context);
-			REQUIRE_VALUE_EQUAL(*op, reset_value, original_value);
+			REQUIRE_VALUE_EQUAL(op, reset_value, original_value);
 		}
 	}
 }

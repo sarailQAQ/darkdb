@@ -61,16 +61,17 @@ public struct Column<DataType> {
   
   private let result: ResultSet
   private let columnIndex: DBInt
-  private let unwrap: @Sendable (Vector.Element) throws -> DataType?
+  private let itemAt: @Sendable (DBInt) -> DataType?
   
-  init(
-    result: ResultSet,
-    columnIndex: DBInt,
-    unwrap: @escaping @Sendable (Vector.Element) throws -> DataType?
-  ) {
+  init(result: ResultSet, columnIndex: DBInt) where DataType == Void {
+    let transformer = result.transformer(forColumn: columnIndex, to: Void.self)
+    self.init(result: result, columnIndex: columnIndex, itemAt: transformer)
+  }
+  
+  init(result: ResultSet, columnIndex: DBInt, itemAt: @escaping @Sendable (DBInt) -> DataType?) {
     self.result = result
     self.columnIndex = columnIndex
-    self.unwrap = unwrap
+    self.itemAt = itemAt
   }
   
   /// The name of the table column
@@ -107,7 +108,7 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Void.Type) -> Column<Void> {
-    .init(result: result, columnIndex: columnIndex) { $0.unwrapNull() ? nil : () }
+    .init(result: result, columnIndex: columnIndex)
   }
   
   /// Casts the column to the given type
@@ -119,7 +120,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Bool.Type) -> Column<Bool> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Bool.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -134,7 +136,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Int.Type) -> Column<Int> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Int.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -146,7 +149,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Int8.Type) -> Column<Int8> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Int8.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -158,7 +162,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Int16.Type) -> Column<Int16> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Int16.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -170,7 +175,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Int32.Type) -> Column<Int32> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Int32.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -182,7 +188,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Int64.Type) -> Column<Int64> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Int64.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -194,7 +201,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: IntHuge.Type) -> Column<IntHuge> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(IntHuge.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -206,7 +214,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UIntHuge.Type) -> Column<UIntHuge> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UIntHuge.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -221,7 +230,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UInt.Type) -> Column<UInt> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UInt.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -233,7 +243,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UInt8.Type) -> Column<UInt8> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UInt8.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -245,7 +256,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UInt16.Type) -> Column<UInt16> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UInt16.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -257,7 +269,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UInt32.Type) -> Column<UInt32> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UInt32.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -269,7 +282,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UInt64.Type) -> Column<UInt64> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UInt64.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -281,7 +295,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Float.Type) -> Column<Float> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Float.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -293,7 +308,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Double.Type) -> Column<Double> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Double.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -305,7 +321,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: String.Type) -> Column<String> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(String.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -317,7 +334,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: UUID.Type) -> Column<UUID> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(UUID.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -329,7 +347,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Time.Type) -> Column<Time> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Time.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
 
   /// Casts the column to the given type
@@ -341,7 +360,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: TimeTz.Type) -> Column<TimeTz> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(TimeTz.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -353,7 +373,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Date.Type) -> Column<Date> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Date.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -365,7 +386,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Timestamp.Type) -> Column<Timestamp> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Timestamp.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -377,7 +399,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Interval.Type) -> Column<Interval> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Interval.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -389,7 +412,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Data.Type) -> Column<Data> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Data.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -401,7 +425,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast(to type: Decimal.Type) -> Column<Decimal> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrap(Decimal.self) }
+    let transformer = result.transformer(forColumn: columnIndex, to: type)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
   
   /// Casts the column to the given type
@@ -413,7 +438,8 @@ public extension Column {
   /// - Parameter type: the native Swift type to cast to
   /// - Returns: a typed DuckDB result set ``Column``
   func cast<T: Decodable>(to type: T.Type) -> Column<T> {
-    .init(result: result, columnIndex: columnIndex) { try $0.unwrapDecodable(T.self) }
+    let transformer = result.decodableTransformer(forColumn: columnIndex, to: T.self)
+    return .init(result: result, columnIndex: columnIndex, itemAt: transformer)
   }
 }
 
@@ -440,12 +466,12 @@ extension Column: RandomAccessCollection {
     }
   }
   
-  public subscript(position: DBInt) -> DataType? {
-    try? unwrap(result.element(forColumn: columnIndex, at: position))
-  }
-  
   public var startIndex: DBInt { 0 }
   public var endIndex: DBInt { result.rowCount }
+  
+  public subscript(position: DBInt) -> DataType? {
+    itemAt(position)
+  }
   
   public func makeIterator() -> Iterator {
     Iterator(column: self)

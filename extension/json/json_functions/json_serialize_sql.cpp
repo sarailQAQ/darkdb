@@ -12,17 +12,15 @@ namespace duckdb {
 struct JsonSerializeBindData : public FunctionData {
 	bool skip_if_null = false;
 	bool skip_if_empty = false;
-	bool skip_if_default = false;
 	bool format = false;
 
-	JsonSerializeBindData(bool skip_if_null_p, bool skip_if_empty_p, bool skip_if_default_p, bool format_p)
-	    : skip_if_null(skip_if_null_p), skip_if_empty(skip_if_empty_p), skip_if_default(skip_if_default_p),
-	      format(format_p) {
+	JsonSerializeBindData(bool skip_if_null_p, bool skip_if_empty_p, bool format_p)
+	    : skip_if_null(skip_if_null_p), skip_if_empty(skip_if_empty_p), format(format_p) {
 	}
 
 public:
 	unique_ptr<FunctionData> Copy() const override {
-		return make_uniq<JsonSerializeBindData>(skip_if_null, skip_if_empty, skip_if_default, format);
+		return make_uniq<JsonSerializeBindData>(skip_if_null, skip_if_empty, format);
 	}
 	bool Equals(const FunctionData &other_p) const override {
 		return true;
@@ -43,7 +41,6 @@ static unique_ptr<FunctionData> JsonSerializeBind(ClientContext &context, Scalar
 
 	bool skip_if_null = false;
 	bool skip_if_empty = false;
-	bool skip_if_default = false;
 	bool format = false;
 
 	for (idx_t i = 1; i < arguments.size(); i++) {
@@ -69,16 +66,11 @@ static unique_ptr<FunctionData> JsonSerializeBind(ClientContext &context, Scalar
 				throw BinderException("json_serialize_sql: 'format' argument must be a boolean");
 			}
 			format = BooleanValue::Get(ExpressionExecutor::EvaluateScalar(context, *arg));
-		} else if (arg->alias == "skip_default") {
-			if (arg->return_type.id() != LogicalTypeId::BOOLEAN) {
-				throw BinderException("json_serialize_sql: 'skip_default' argument must be a boolean");
-			}
-			skip_if_default = BooleanValue::Get(ExpressionExecutor::EvaluateScalar(context, *arg));
 		} else {
-			throw BinderException(StringUtil::Format("json_serialize_sql: Unknown argument '%s'", arg->alias));
+			throw BinderException(StringUtil::Format("json_serialize_sql: Unknown argument '%s'", arg->alias.c_str()));
 		}
 	}
-	return make_uniq<JsonSerializeBindData>(skip_if_null, skip_if_empty, skip_if_default, format);
+	return make_uniq<JsonSerializeBindData>(skip_if_null, skip_if_empty, format);
 }
 
 static void JsonSerializeFunction(DataChunk &args, ExpressionState &state, Vector &result) {
@@ -105,8 +97,7 @@ static void JsonSerializeFunction(DataChunk &args, ExpressionState &state, Vecto
 					throw NotImplementedException("Only SELECT statements can be serialized to json!");
 				}
 				auto &select = statement->Cast<SelectStatement>();
-				auto json =
-				    JsonSerializer::Serialize(select, doc, info.skip_if_null, info.skip_if_empty, info.skip_if_default);
+				auto json = JsonSerializer::Serialize(select, doc, info.skip_if_null, info.skip_if_empty);
 
 				yyjson_mut_arr_append(statements_arr, json);
 			}

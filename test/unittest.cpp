@@ -1,90 +1,148 @@
 #define CATCH_CONFIG_RUNNER
-#include "catch.hpp"
-
-#include "duckdb/common/file_system.hpp"
-#include "duckdb/common/string_util.hpp"
+#include "duckdb.hpp"
 #include "test_helpers.hpp"
-
 using namespace duckdb;
 
-namespace duckdb {
-static bool test_force_storage = false;
-static bool test_force_reload = false;
-static bool test_memory_leaks = false;
+int main() {
+	DuckDB db("db");
 
-bool TestForceStorage() {
-	return test_force_storage;
+	Connection con(db);
+
+//	 con.Query("CREATE TABLE CCourse (\n"
+//	          "    Cno INT Primary key,\n"
+//	          "    Cname VARCHAR(20),\n"
+//	          "    Cpno INT,\n"
+//	          "    Ccredit INT\n"
+//	          ");");
+//	 con.Query("Create table CStudent (\n"
+//	           "    Sno INt Primary key,\n"
+//	           "    Sname VARCHAR(10),\n"
+//	           "    Ssex VARCHAR(4),\n"
+//	           "    Sage Int,\n"
+//	           "    Sdept VARCHAR(10)\n"
+//	           ");");
+//	 con.Query("Create table CSC(\n"
+//	           "    Sno INT, \n"
+//	           "    Cno INT,\n"
+//	           "    Grade INT,\n"
+//	           "    Primary key(Sno,Cno)\n"
+//	           ");");
+//
+//	 con.Query("INSERT into CStudent Values"
+//	           "(201215121,'李勇','男',20,'CS'),"
+//	           "(201215122,'刘晨','男',NULL,'CS'),"
+//	           "(201215123,'王敏','女',18,'MA'),"
+//	           "(201215124,'张立','男',19,'IS');");
+//	 con.Query("Insert into CCourse(Cno, Cname,Cpno, Ccredit) VALUES\n"
+//	           "(1,'数据库',5,4),\n"
+//	           "(2,'数学',NULL,2),\n"
+//	           "(3,'信息系统',1,4),\n"
+//	           "(4,'操作系统',6,3),\n"
+//	           "(5,'数据结构',7,4),\n"
+//	           "(6,'数据处理',NULL,2),\n"
+//	           "(7,'C语言',6,4);");
+//	 con.Query("Insert into CSC(Sno, CNo, Grade) VALUES\n"
+//	           "(201215121,1,92),\n"
+//	           "(201215121,2,85),\n"
+//	           "(201215121,3,88),\n"
+//	           "(201215122,2,90),\n"
+//	           "(201215122,3,80);");
+
+//		 con.Query("INSERT into CStudent Values"
+//		           "(201215120,'张煜煜','男',19,'IS');");
+
+//	auto res = con.Query("explain analyze SELECT CStudent.Sno, Sname, CNo, Grade FROM CStudent, CSC WHERE CStudent.Sno=CSC.Sno;");
+	auto res = con.Query("explain analyze SELECT * Grade FROM CStudent;");
+	res->Print();
 }
 
-bool TestForceReload() {
-	return test_force_reload;
-}
-
-bool TestMemoryLeaks() {
-	return test_memory_leaks;
-}
-
-} // namespace duckdb
-
-int main(int argc, char *argv[]) {
-	duckdb::unique_ptr<FileSystem> fs = FileSystem::CreateLocal();
-	string test_directory = DUCKDB_ROOT_DIRECTORY;
-	bool delete_test_path = true;
-
-	int new_argc = 0;
-	auto new_argv = duckdb::unique_ptr<char *[]>(new char *[argc]);
-	for (int i = 0; i < argc; i++) {
-		if (string(argv[i]) == "--force-storage") {
-			test_force_storage = true;
-		} else if (string(argv[i]) == "--force-reload" || string(argv[i]) == "--force-restart") {
-			test_force_reload = true;
-		} else if (StringUtil::StartsWith(string(argv[i]), "--memory-leak") ||
-		           StringUtil::StartsWith(string(argv[i]), "--test-memory-leak")) {
-			test_memory_leaks = true;
-		} else if (string(argv[i]) == "--test-dir") {
-			test_directory = string(argv[++i]);
-		} else if (string(argv[i]) == "--test-temp-dir") {
-			delete_test_path = false;
-			auto test_dir = string(argv[++i]);
-			if (fs->DirectoryExists(test_dir)) {
-				fprintf(stderr, "--test-temp-dir cannot point to a directory that already exists (%s)\n",
-				        test_dir.c_str());
-				return 1;
-			}
-			SetTestDirectory(test_dir);
-		} else if (string(argv[i]) == "--require") {
-			AddRequire(string(argv[++i]));
-		} else if (string(argv[i]) == "--zero-initialize") {
-			SetDebugInitialize(0);
-		} else if (string(argv[i]) == "--one-initialize") {
-			SetDebugInitialize(0xFF);
-		} else if (string(argv[i]) == "--single-threaded") {
-			SetSingleThreaded();
-		} else {
-			new_argv[new_argc] = argv[i];
-			new_argc++;
-		}
-	}
-
-	TestChangeDirectory(test_directory);
-	// delete the testing directory if it exists
-	auto dir = TestCreatePath("");
-	try {
-		TestDeleteDirectory(dir);
-		// create the empty testing directory
-		TestCreateDirectory(dir);
-	} catch (std::exception &ex) {
-		fprintf(stderr, "Failed to create testing directory \"%s\": %s\n", dir.c_str(), ex.what());
-		return 1;
-	}
-
-	RegisterSqllogictests();
-
-	int result = Catch::Session().run(new_argc, new_argv.get());
-
-	if (delete_test_path) {
-		TestDeleteDirectory(dir);
-	}
-
-	return result;
-}
+// #define CATCH_CONFIG_RUNNER
+// #include "catch.hpp"
+//
+// #include "duckdb/common/file_system.hpp"
+// #include "duckdb/common/string_util.hpp"
+// #include "test_helpers.hpp"
+//
+// using namespace duckdb;
+//
+// namespace duckdb {
+// static bool test_force_storage = false;
+// static bool test_f	orce_reload = false;
+// static bool test_memory_leaks = false;
+//
+// bool TestForceStorage() {
+// 	return test_force_storage;
+// }
+//
+// bool TestForceReload() {
+// 	return test_force_reload;
+// }
+//
+// bool TestMemoryLeaks() {
+// 	return test_memory_leaks;
+// }
+//
+// } // namespace duckdb
+//
+// int main(int argc, char *argv[]) {
+// 	duckdb::unique_ptr<FileSystem> fs = FileSystem::CreateLocal();
+// 	string test_directory = DUCKDB_ROOT_DIRECTORY;
+// 	bool delete_test_path = true;
+//
+// 	int new_argc = 0;
+// 	auto new_argv = duckdb::unique_ptr<char *[]>(new char *[argc]);
+// 	for (int i = 0; i < argc; i++) {
+// 		if (string(argv[i]) == "--force-storage") {
+// 			test_force_storage = true;
+// 		} else if (string(argv[i]) == "--force-reload" || string(argv[i]) == "--force-restart") {
+// 			test_force_reload = true;
+// 		} else if (StringUtil::StartsWith(string(argv[i]), "--memory-leak") ||
+// 		           StringUtil::StartsWith(string(argv[i]), "--test-memory-leak")) {
+// 			test_memory_leaks = true;
+// 		} else if (string(argv[i]) == "--test-dir") {
+// 			test_directory = string(argv[++i]);
+// 		} else if (string(argv[i]) == "--test-temp-dir") {
+// 			delete_test_path = false;
+// 			auto test_dir = string(argv[++i]);
+// 			if (fs->DirectoryExists(test_dir)) {
+// 				fprintf(stderr, "--test-temp-dir cannot point to a directory that already exists (%s)\n",
+// 				        test_dir.c_str());
+// 				return 1;
+// 			}
+// 			SetTestDirectory(test_dir);
+// 		} else if (string(argv[i]) == "--require") {
+// 			AddRequire(string(argv[++i]));
+// 		} else if (string(argv[i]) == "--zero-initialize") {
+// 			SetDebugInitialize(0);
+// 		} else if (string(argv[i]) == "--one-initialize") {
+// 			SetDebugInitialize(0xFF);
+// 		} else if (string(argv[i]) == "--single-threaded") {
+// 			SetSingleThreaded();
+// 		} else {
+// 			new_argv[new_argc] = argv[i];
+// 			new_argc++;
+// 		}
+// 	}
+//
+// 	TestChangeDirectory(test_directory);
+// 	// delete the testing directory if it exists
+// 	auto dir = TestCreatePath("");
+// 	try {
+// 		TestDeleteDirectory(dir);
+// 		// create the empty testing directory
+// 		TestCreateDirectory(dir);
+// 	} catch (std::exception &ex) {
+// 		fprintf(stderr, "Failed to create testing directory \"%s\": %s\n", dir.c_str(), ex.what());
+// 		return 1;
+// 	}
+//
+// 	RegisterSqllogictests();
+//
+// 	int result = Catch::Session().run(new_argc, new_argv.get());
+//
+// 	if (delete_test_path) {
+// 		TestDeleteDirectory(dir);
+// 	}
+//
+// 	return result;
+// }

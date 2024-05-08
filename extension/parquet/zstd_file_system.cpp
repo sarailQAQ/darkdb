@@ -27,7 +27,7 @@ ZstdStreamWrapper::~ZstdStreamWrapper() {
 	}
 	try {
 		Close();
-	} catch (...) { // NOLINT: swallow exceptions in destructor
+	} catch (...) {
 	}
 }
 

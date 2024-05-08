@@ -31,13 +31,10 @@ void NumpyResultConversion::Append(DataChunk &chunk) {
 		Resize(capacity * 2);
 	}
 	auto chunk_types = chunk.GetTypes();
-	auto source_offset = 0;
-	auto source_size = chunk.size();
-	auto to_append = chunk.size();
 	for (idx_t col_idx = 0; col_idx < owned_data.size(); col_idx++) {
-		owned_data[col_idx].Append(count, chunk.data[col_idx], source_size, source_offset, to_append);
+		owned_data[col_idx].Append(count, chunk.data[col_idx], chunk.size());
 	}
-	count += to_append;
+	count += chunk.size();
 #ifdef DEBUG
 	for (auto &data : owned_data) {
 		D_ASSERT(data.data->count == count);

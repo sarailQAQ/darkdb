@@ -31,7 +31,8 @@ endif()
 
 add_definitions(-DDUCKDB_ROOT_DIRECTORY="${PROJECT_SOURCE_DIR}")
 
-add_executable(unittest unittest.cpp ${ALL_OBJECT_FILES})
+#add_executable(unittest unittest.cpp ${ALL_OBJECT_FILES})
+add_executable(unittest unittest.cpp)
 
 if(NOT WIN32
    AND NOT SUN

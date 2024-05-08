@@ -37,26 +37,48 @@ import Foundation
 /// Elements of a column can be accessed by casting the column to the native
 /// Swift type that matches the underlying database column type. See ``Column``
 /// for further discussion.
-public struct ResultSet: Sendable {
+public final class ResultSet: Sendable {
   
   /// The number of chunks in the result set
-  public var chunkCount: DBInt { chunkStorage.chunkCount }
+  public var chunkCount: DBInt { duckdb_result_chunk_count(ptr.pointee) }
   /// The number of columns in the result set
-  public var columnCount: DBInt { storage.columnCount }
-  /// The total number of rows in the result set
-  public var rowCount: DBInt { chunkStorage.totalRowCount }
+  public var columnCount: DBInt { duckdb_column_count(ptr) }
   
-  private let storage: ResultStorage
-  private let chunkStorage: ChunkStorage
+  /// The total number of rows in the result set
+  public var rowCount: DBInt {
+    var count = DBInt.zero
+    var chunkIndex = DBInt.zero
+    while chunkIndex < chunkCount {
+      let chunk = dataChunk(at: chunkIndex)
+      count += chunk.count
+      chunkIndex += 1
+    }
+    return count
+  }
+  
+  private let ptr = UnsafeMutablePointer<duckdb_result>.allocate(capacity: 1)
   
   init(connection: Connection, sql: String) throws {
-    self.storage = try ResultStorage(connection: connection, sql: sql)
-    self.chunkStorage = ChunkStorage(resultStorage: storage)
+    let status = sql.withCString { queryStrPtr in
+      connection.withCConnection { duckdb_query($0, queryStrPtr, ptr) }
+    }
+    guard status == .success else {
+      let error = duckdb_result_error(ptr).map(String.init(cString:))
+      throw DatabaseError.connectionQueryError(reason: error)
+    }
   }
   
   init(prepared: PreparedStatement) throws {
-    self.storage = try ResultStorage(prepared: prepared)
-    self.chunkStorage = ChunkStorage(resultStorage: storage)
+    let status = prepared.withCPreparedStatement { duckdb_execute_prepared($0, ptr) }
+    guard status == .success else {
+      let error = duckdb_result_error(ptr).map(String.init(cString:))
+      throw DatabaseError.preparedStatementQueryError(reason: error)
+    }
+  }
+  
+  deinit {
+    duckdb_destroy_result(ptr)
+    ptr.deallocate()
   }
   
   /// Returns a `Void` typed column for the given column index
@@ -69,7 +91,7 @@ public struct ResultSet: Sendable {
   /// - Returns: a `Void` typed column
   public func column(at columnIndex: DBInt) -> Column<Void> {
     precondition(columnIndex < columnCount)
-    return Column(result: self, columnIndex: columnIndex) { $0.unwrapNull() ? nil : () }
+    return Column(result: self, columnIndex: columnIndex)
   }
   
   /// The underlying column name for the given column index
@@ -77,7 +99,7 @@ public struct ResultSet: Sendable {
   /// - Parameter columnIndex: the index of the column in the result set
   /// - Returns: the name of the column
   public func columnName(at columnIndex: DBInt) -> String {
-    storage.columnName(at: columnIndex)
+    String(cString: duckdb_column_name(ptr, columnIndex))
   }
   
   /// The index of the given column name
@@ -95,30 +117,183 @@ public struct ResultSet: Sendable {
   }
   
   func columnDataType(at index: DBInt) -> DatabaseType {
-    storage.columnDataType(at: index)
+    let dataType = duckdb_column_type(ptr, index)
+    return DatabaseType(rawValue: dataType.rawValue)
   }
 
   func columnLogicalType(at index: DBInt) -> LogicalType {
-    storage.columnLogicalType(at: index)
+    return LogicalType { duckdb_column_logical_type(ptr, index) }
   }
   
-  func element(forColumn columnIndex: DBInt, at index: DBInt) -> Vector.Element {
-    var chunkIndex = DBInt.zero
-    var chunkRowOffset = DBInt.zero
-    while chunkIndex < chunkCount {
-      let chunk = chunkStorage[Int(chunkIndex)]
-      let chunkCount = chunk.count
-      if index < chunkRowOffset + chunkCount {
-        return chunk.withVector(at: columnIndex) { vector in
-          vector[Int(index - chunkRowOffset)]
-        }
+  func withCResult<T>(_ body: (UnsafeMutablePointer<duckdb_result>) throws -> T) rethrows -> T {
+    try body(ptr)
+  }
+}
+
+// MARK: - Type Casting Transformers
+
+extension ResultSet {
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Void.Type
+  ) -> @Sendable (DBInt) -> Void? {
+    transformer(forColumn: columnIndex, to: type) { $0.unwrapNull() ? nil : () }
+  }
+  
+  func transformer<T: PrimitiveDatabaseValue>(
+    forColumn columnIndex: DBInt, to type: T.Type
+  ) -> @Sendable (DBInt) -> T? {
+    transformer(
+      forColumn: columnIndex, to: type, fromType: T.representedDatabaseTypeID
+    ) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Int.Type
+  ) -> @Sendable (DBInt) -> Int? {
+    transformer(forColumn: columnIndex, to: type) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: UInt.Type
+  ) -> @Sendable (DBInt) -> UInt? {
+    transformer(forColumn: columnIndex, to: type) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: IntHuge.Type
+  ) -> @Sendable (DBInt) -> IntHuge? {
+    transformer(forColumn: columnIndex, to: type, fromType: .hugeint) { try? $0.unwrap(type) }
+  }
+
+  func transformer(
+    forColumn columnIndex: DBInt, to type: UIntHuge.Type
+  ) -> @Sendable (DBInt) -> UIntHuge? {
+    transformer(forColumn: columnIndex, to: type, fromType: .uhugeint) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: String.Type
+  ) -> @Sendable (DBInt) -> String? {
+    transformer(forColumn: columnIndex, to: type, fromType: .varchar) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: UUID.Type
+  ) -> @Sendable (DBInt) -> UUID? {
+    transformer(forColumn: columnIndex, to: type, fromType: .uuid) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Time.Type
+  ) -> @Sendable (DBInt) -> Time? {
+    transformer(forColumn: columnIndex, to: type, fromType: .time) { try? $0.unwrap(type) }
+  }
+
+  func transformer(
+    forColumn columnIndex: DBInt, to type: TimeTz.Type
+  ) -> @Sendable (DBInt) -> TimeTz? {
+    transformer(forColumn: columnIndex, to: type, fromType: .timeTz) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Date.Type
+  ) -> @Sendable (DBInt) -> Date? {
+    transformer(forColumn: columnIndex, to: type, fromType: .date) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Timestamp.Type
+  ) -> @Sendable (DBInt) -> Timestamp? {
+    let columnTypes = [DatabaseType.timestampS, .timestampMS, .timestamp, .timestampTz, .timestampNS]
+    return transformer(
+      forColumn: columnIndex, to: type, fromTypes: .init(columnTypes)
+    ) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Interval.Type
+  ) -> @Sendable (DBInt) -> Interval? {
+    transformer(forColumn: columnIndex, to: type, fromType: .interval) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Data.Type
+  ) -> @Sendable (DBInt) -> Data? {
+    transformer(forColumn: columnIndex, to: type, fromType: .blob) { try? $0.unwrap(type) }
+  }
+  
+  func transformer(
+    forColumn columnIndex: DBInt, to type: Decimal.Type
+  ) -> @Sendable (DBInt) -> Decimal? {
+    transformer(forColumn: columnIndex, to: type, fromType: .decimal) { try? $0.unwrap(type) }
+  }
+  
+  func decodableTransformer<T: Decodable>(
+    forColumn columnIndex: DBInt, to type: T.Type
+  ) -> @Sendable (DBInt) -> T? {
+    transformer(forColumn: columnIndex, to: type) { element in
+      do {
+        return try VectorElementDecoder.default.decode(T?.self, element: element)
       }
-      else {
-        chunkIndex += 1
-        chunkRowOffset += chunkCount
+      catch {
+        print("decoding failed with error: \(error)")
+        return nil
       }
     }
-    preconditionFailure("item out of bounds")
+  }
+}
+
+// MARK: - Data Extraction Utilities
+
+private extension ResultSet {
+  
+  func dataChunk(at index: DBInt) -> DataChunk {
+    precondition(index < chunkCount, "data chunk out of bounds")
+    return DataChunk(result: self, index: index)
+  }
+  
+  func transformer<T>(
+    forColumn columnIndex: DBInt,
+    to type: T.Type,
+    fromType columnType: DatabaseType,
+    _ body: @escaping (Vector.Element) -> T?
+  ) -> @Sendable (DBInt) -> T? {
+    transformer(forColumn: columnIndex, to: type, fromTypes: .init([columnType]), body)
+  }
+  
+  func transformer<T>(
+    forColumn columnIndex: DBInt,
+    to type: T.Type,
+    fromTypes columnTypes: Set<DatabaseType>? = nil,
+    _ body: @escaping (Vector.Element) -> T?
+  ) -> @Sendable (DBInt) -> T? {
+    if let columnTypes {
+      let columnDataType = columnDataType(at: columnIndex)
+      guard columnTypes.contains(columnDataType) else {
+        let columnTypeString = columnDataType.description.uppercased()
+        assertionFailure("unsupported type conversion from \(columnTypeString) to \(type)")
+        return { _ in nil }
+      }
+    }
+    return { [self] itemIndex in
+      var chunkIndex = DBInt.zero
+      var chunkRowOffset = DBInt.zero
+      while chunkIndex < chunkCount {
+        let chunk = dataChunk(at: chunkIndex)
+        let chunkCount = chunk.count
+        if itemIndex < chunkRowOffset + chunkCount {
+          return chunk.withVector(at: columnIndex) { vector in
+            body(vector[Int(itemIndex - chunkRowOffset)])
+          }
+        }
+        else {
+          chunkIndex += 1
+          chunkRowOffset += chunkCount
+        }
+      }
+      preconditionFailure("item out of bounds")
+    }
   }
 }
 
@@ -174,78 +349,4 @@ extension ResultSet: CustomDebugStringConvertible {
     }
     return "<\(Self.self): { \(summary) (\n\(columns.joined(separator: ",\n"))\n);>"
   }
-}
-
-// MARK: - Utilities
-
-fileprivate final class ResultStorage: Sendable {
-  
-  let columnCount: DBInt
-  
-  private let ptr = UnsafeMutablePointer<duckdb_result>.allocate(capacity: 1)
-  
-  init(connection: Connection, sql: String) throws {
-    let status = sql.withCString { [ptr] queryStrPtr in
-      connection.withCConnection { duckdb_query($0, queryStrPtr, ptr) }
-    }
-    guard status == .success else {
-      let error = duckdb_result_error(ptr).map(String.init(cString:))
-      throw DatabaseError.connectionQueryError(reason: error)
-    }
-    self.columnCount = duckdb_column_count(ptr)
-  }
-  
-  init(prepared: PreparedStatement) throws {
-    let status = prepared.withCPreparedStatement { [ptr] in duckdb_execute_prepared($0, ptr) }
-    guard status == .success else {
-      let error = duckdb_result_error(ptr).map(String.init(cString:))
-      throw DatabaseError.preparedStatementQueryError(reason: error)
-    }
-    self.columnCount = duckdb_column_count(ptr)
-  }
-  
-  func columnName(at columnIndex: DBInt) -> String {
-    String(cString: duckdb_column_name(ptr, columnIndex))
-  }
-  
-  func columnDataType(at index: DBInt) -> DatabaseType {
-    let dataType = duckdb_column_type(ptr, index)
-    return DatabaseType(rawValue: dataType.rawValue)
-  }
-
-  func columnLogicalType(at index: DBInt) -> LogicalType {
-    return LogicalType { duckdb_column_logical_type(ptr, index) }
-  }
-  
-  func withCResult<T>(_ body: (duckdb_result) throws -> T) rethrows -> T {
-    try body(ptr.pointee)
-  }
-  
-  deinit {
-    duckdb_destroy_result(ptr)
-    ptr.deallocate()
-  }
-}
-
-fileprivate final class ChunkStorage: Sendable {
-  
-  let chunkCount: DBInt
-  let totalRowCount: DBInt
-  private let chunks: [DataChunk]
-  
-  init(resultStorage: ResultStorage) {
-    let chunkCount = resultStorage.withCResult { duckdb_result_chunk_count($0) }
-    var chunks = [DataChunk]()
-    var totalRowCount = DBInt(0)
-    for i in 0 ..< chunkCount {
-      let chunk = resultStorage.withCResult { DataChunk(cresult: $0, index: i) }
-      chunks.append(chunk)
-      totalRowCount += chunk.count
-    }
-    self.chunks = chunks
-    self.chunkCount = chunkCount
-    self.totalRowCount = totalRowCount
-  }
-  
-  subscript(position: Int) -> DataChunk { chunks[position] }
 }

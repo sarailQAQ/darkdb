@@ -66,6 +66,7 @@ static LogicalType BindColumn(PandasBindColumn &column_p, PandasColumnBindData &
 		if (categories_pd_type.type == NumpyNullableType::OBJECT) {
 			// Let's hope the object type is a string.
 			bind_data.numpy_type.type = NumpyNullableType::CATEGORY;
+			auto enum_name = string(py::str(column_p.name));
 			vector<string> enum_entries = py::cast<vector<string>>(categories);
 			idx_t size = enum_entries.size();
 			Vector enum_entries_vec(LogicalType::VARCHAR, size);

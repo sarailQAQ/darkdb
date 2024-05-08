@@ -32,11 +32,8 @@ class TestNativeTimeZone(object):
         assert res[0].tzinfo.zone == 'UTC'
 
     def test_native_python_time_timezone(self, duckdb_cursor):
-        res = duckdb_cursor.execute(f"select TimeRecStart::TIMETZ as tz from '{filename}'").fetchone()
-        assert res == (datetime.time(21, 52, 27, tzinfo=datetime.timezone.utc),)
-
-        roundtrip = duckdb_cursor.execute("select $1", [res[0]]).fetchone()
-        assert roundtrip == res
+        with pytest.raises(duckdb.NotImplementedException, match="Not implemented Error: Unsupported type"):
+            duckdb_cursor.execute(f"select TimeRecStart::TIMETZ  as tz  from '{filename}'").fetchone()
 
     def test_pandas_timestamp_timezone(self, duckdb_cursor):
         res = duckdb_cursor.execute("SET timezone='America/Los_Angeles';")

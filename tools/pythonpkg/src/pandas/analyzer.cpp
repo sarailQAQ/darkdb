@@ -8,24 +8,34 @@
 
 namespace duckdb {
 
-static bool SameTypeRealm(const LogicalType &a, const LogicalType &b) {
-	auto a_id = a.id();
-	auto b_id = b.id();
-	if (a_id == b_id) {
+static bool TypeIsNested(LogicalTypeId id) {
+	switch (id) {
+	case LogicalTypeId::STRUCT:
+	case LogicalTypeId::LIST:
+	case LogicalTypeId::MAP:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool UpgradeType(LogicalType &left, const LogicalType &right);
+
+static bool SameTypeRealm(LogicalTypeId a, LogicalTypeId b) {
+	if (a == b) {
 		return true;
 	}
-	if (a_id > b_id) {
+	if (a > b) {
 		return SameTypeRealm(b, a);
 	}
-	D_ASSERT(a_id < b_id);
+	D_ASSERT(a < b);
 
 	// anything ANY and under can transform to anything
-	if (a_id <= LogicalTypeId::ANY) {
+	if (a <= LogicalTypeId::ANY) {
 		return true;
 	}
-
-	auto a_is_nested = a.IsNested();
-	auto b_is_nested = b.IsNested();
+	auto a_is_nested = TypeIsNested(a);
+	auto b_is_nested = TypeIsNested(b);
 	// Both a and b are not nested
 	if (!a_is_nested && !b_is_nested) {
 		return true;
@@ -34,31 +44,16 @@ static bool SameTypeRealm(const LogicalType &a, const LogicalType &b) {
 	if (!a_is_nested || !b_is_nested) {
 		return false;
 	}
-
-	// From this point on, left and right are both nested
-	D_ASSERT(a_id != b_id);
 	// STRUCT -> LIST is not possible
-	if (b_id == LogicalTypeId::LIST || a_id == LogicalTypeId::LIST) {
+	if (b == LogicalTypeId::LIST || a == LogicalTypeId::LIST) {
 		return false;
 	}
 	return true;
 }
 
-static bool UpgradeType(LogicalType &left, const LogicalType &right);
-
+//@return Whether the two logicaltypes are compatible
 static bool CheckTypeCompatibility(const LogicalType &left, const LogicalType &right) {
-	if (!SameTypeRealm(left, right)) {
-		return false;
-	}
-	if (!left.IsNested() || !right.IsNested()) {
-		return true;
-	}
-
-	// Nested type IDs between left and right have to match
-	if (left.id() != right.id()) {
-		return false;
-	}
-	return true;
+	return SameTypeRealm(left.id(), right.id());
 }
 
 static bool IsStructColumnValid(const LogicalType &left, const LogicalType &right) {
@@ -89,25 +84,22 @@ static bool IsStructColumnValid(const LogicalType &left, const LogicalType &righ
 	return true;
 }
 
-static bool CombineStructTypes(LogicalType &result, const LogicalType &input) {
-	D_ASSERT(input.id() == LogicalTypeId::STRUCT);
-	auto &children = StructType::GetChildTypes(input);
-	for (auto &type : children) {
-		if (!UpgradeType(result, type.second)) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static bool SatisfiesMapConstraints(const LogicalType &left, const LogicalType &right, LogicalType &map_value_type) {
 	D_ASSERT(left.id() == LogicalTypeId::STRUCT && left.id() == right.id());
 
-	if (!CombineStructTypes(map_value_type, left)) {
-		return false;
+	//! Child types of the two structs
+	auto &left_children = StructType::GetChildTypes(left);
+	auto &right_children = StructType::GetChildTypes(right);
+
+	for (auto &type : left_children) {
+		if (!UpgradeType(map_value_type, type.second)) {
+			return false;
+		}
 	}
-	if (!CombineStructTypes(map_value_type, right)) {
-		return false;
+	for (auto &type : right_children) {
+		if (!UpgradeType(map_value_type, type.second)) {
+			return false;
+		}
 	}
 	return true;
 }
@@ -117,135 +109,38 @@ static LogicalType ConvertStructToMap(LogicalType &map_value_type) {
 	return LogicalType::MAP(LogicalType::VARCHAR, map_value_type);
 }
 
-// This is similar to ForceMaxLogicalType but we have custom rules around combining STRUCT types
-// And because of that we have to avoid ForceMaxLogicalType for every nested type
 static bool UpgradeType(LogicalType &left, const LogicalType &right) {
-	if (left.id() == LogicalTypeId::SQLNULL) {
-		// Early out for upgrading null
-		left = right;
-		return true;
+	bool compatible = CheckTypeCompatibility(left, right);
+	if (!compatible) {
+		return false;
 	}
-
-	if (left.IsNested() && right.id() == LogicalTypeId::SQLNULL) {
-		return true;
-	}
-
-	switch (left.id()) {
-	case LogicalTypeId::LIST: {
-		if (right.id() != left.id()) {
-			// Not both sides are LIST, not compatible
-			// FIXME: maybe compatible with ARRAY type??
-			return false;
-		}
-		LogicalType child_type = LogicalType::SQLNULL;
-		if (!UpgradeType(child_type, ListType::GetChildType(left))) {
-			return false;
-		}
-		if (!UpgradeType(child_type, ListType::GetChildType(right))) {
-			return false;
-		}
-		left = LogicalType::LIST(child_type);
-		return true;
-	}
-	case LogicalTypeId::ARRAY: {
-		if (right.id() != left.id()) {
-			// Not both sides are ARRAY, not compatible
-			// FIXME: maybe compatible with LIST type??
-			return false;
-		}
-		LogicalType child_type = LogicalType::SQLNULL;
-		if (!UpgradeType(child_type, ArrayType::GetChildType(left))) {
-			return false;
-		}
-		if (!UpgradeType(child_type, ArrayType::GetChildType(right))) {
-			return false;
-		}
-		left = LogicalType::ARRAY(child_type);
-		return true;
-	}
-	case LogicalTypeId::STRUCT: {
-		if (right.id() == LogicalTypeId::STRUCT) {
-			bool valid_struct = IsStructColumnValid(left, right);
-			if (valid_struct) {
-				child_list_t<LogicalType> children;
-				auto child_count = StructType::GetChildCount(right);
-				D_ASSERT(child_count == StructType::GetChildCount(left));
-				// Combine all types from left and right
-				for (idx_t i = 0; i < child_count; i++) {
-					auto &right_child = StructType::GetChildType(right, i);
-					auto new_child = StructType::GetChildType(left, i);
-
-					auto child_name = StructType::GetChildName(left, i);
-					if (!UpgradeType(new_child, right_child)) {
-						return false;
-					}
-					children.push_back(std::make_pair(child_name, new_child));
-				}
-				left = LogicalType::STRUCT(std::move(children));
-			} else {
-				LogicalType value_type = LogicalType::SQLNULL;
-				if (SatisfiesMapConstraints(left, right, value_type)) {
-					// Combine all the child types together, becoming the value_type for the resulting MAP
-					left = ConvertStructToMap(value_type);
-				} else {
+	// If struct constraints are not respected, left will be set to MAP
+	if (left.id() == LogicalTypeId::STRUCT && right.id() == left.id()) {
+		bool valid_struct = IsStructColumnValid(left, right);
+		if (valid_struct) {
+			child_list_t<LogicalType> children;
+			for (idx_t i = 0; i < StructType::GetChildCount(right); i++) {
+				auto &right_child = StructType::GetChildType(right, i);
+				auto new_child = StructType::GetChildType(left, i);
+				auto child_name = StructType::GetChildName(left, i);
+				if (!UpgradeType(new_child, right_child)) {
 					return false;
 				}
+				children.push_back(std::make_pair(child_name, new_child));
 			}
-		} else if (right.id() == LogicalTypeId::MAP) {
-			// Left: STRUCT, Right: MAP
-			// Combine all the child types of the STRUCT into the value type of the MAP
-			auto value_type = MapType::ValueType(right);
-			if (!CombineStructTypes(value_type, left)) {
-				return false;
-			}
-			left = LogicalType::MAP(LogicalType::VARCHAR, value_type);
-		} else {
-			return false;
+			left = LogicalType::STRUCT(std::move(children));
 		}
-		return true;
-	}
-	case LogicalTypeId::UNION: {
-		throw NotImplementedException("Converting to UNION type is not supported yet");
-	}
-	case LogicalTypeId::MAP: {
-		if (right.id() == LogicalTypeId::MAP) {
-			// Key Type
-			LogicalType key_type = LogicalType::SQLNULL;
-			if (!UpgradeType(key_type, MapType::KeyType(left))) {
+		if (!valid_struct) {
+			LogicalType map_value_type = LogicalType::SQLNULL;
+			if (SatisfiesMapConstraints(left, right, map_value_type)) {
+				left = ConvertStructToMap(map_value_type);
+			} else {
 				return false;
 			}
-			if (!UpgradeType(key_type, MapType::KeyType(right))) {
-				return false;
-			}
-
-			// Value Type
-			LogicalType value_type = LogicalType::SQLNULL;
-			if (!UpgradeType(value_type, MapType::ValueType(left))) {
-				return false;
-			}
-			if (!UpgradeType(value_type, MapType::ValueType(right))) {
-				return false;
-			}
-			left = LogicalType::MAP(key_type, value_type);
-		} else if (right.id() == LogicalTypeId::STRUCT) {
-			auto value_type = MapType::ValueType(left);
-			if (!CombineStructTypes(value_type, right)) {
-				return false;
-			}
-			left = LogicalType::MAP(LogicalType::VARCHAR, value_type);
-		} else {
-			return false;
 		}
-		return true;
 	}
-	default: {
-		if (!CheckTypeCompatibility(left, right)) {
-			return false;
-		}
-		left = LogicalType::ForceMaxLogicalType(left, right);
-		return true;
-	}
-	}
+	// If one of the types is map, this will set the resulting type to map
+	left = LogicalType::ForceMaxLogicalType(left, right);
 	return true;
 }
 
@@ -330,10 +225,6 @@ static bool VerifyStructValidity(vector<LogicalType> &structs) {
 LogicalType PandasAnalyzer::DictToMap(const PyDictionary &dict, bool &can_convert) {
 	auto keys = dict.values.attr("__getitem__")(0);
 	auto values = dict.values.attr("__getitem__")(1);
-
-	if (py::none().is(keys) || py::none().is(values)) {
-		return LogicalType::MAP(LogicalTypeId::SQLNULL, LogicalTypeId::SQLNULL);
-	}
 
 	auto key_type = GetListType(keys, can_convert);
 	if (!can_convert) {
@@ -486,7 +377,7 @@ static py::object FindFirstNonNull(const py::handle &row, idx_t offset, idx_t ra
 LogicalType PandasAnalyzer::InnerAnalyze(py::object column, bool &can_convert, bool sample, idx_t increment) {
 	idx_t rows = py::len(column);
 
-	if (rows == 0) {
+	if (!rows) {
 		return LogicalType::SQLNULL;
 	}
 

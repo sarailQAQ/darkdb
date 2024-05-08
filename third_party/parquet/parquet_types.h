@@ -61,8 +61,7 @@ struct ConvertedType {
     INT_64 = 18,
     JSON = 19,
     BSON = 20,
-    INTERVAL = 21,
-    NULL_TYPE = 24
+    INTERVAL = 21
   };
 };
 
@@ -102,8 +101,7 @@ struct CompressionCodec {
     LZO = 3,
     BROTLI = 4,
     LZ4 = 5,
-    ZSTD = 6,
-	LZ4_RAW = 7
+    ZSTD = 6
   };
 };
 

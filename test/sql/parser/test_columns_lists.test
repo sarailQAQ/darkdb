@@ -90,17 +90,17 @@ SELECT COLUMNS(['k']) FROM integers
 not found in the FROM clause
 
 # COLUMNS and joins
-query I rowsort
+query I
 SELECT COLUMNS([x for x in (*) if x LIKE 'i']) FROM integers i1 JOIN integers i2 USING (i)
 ----
-13
 42
+13
 
-query II rowsort
+query II
 SELECT COLUMNS([x for x in (*) if x LIKE 'i']) FROM integers i1 JOIN integers i2 ON (i1.i=i2.i)
 ----
-13	13
 42	42
+13	13
 
 # wrong parameter type
 statement error

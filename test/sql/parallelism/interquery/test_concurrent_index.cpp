@@ -29,22 +29,20 @@ static void CheckConstraintViolation(const string &result_str) {
 	}
 }
 
-static void ReadFromIntegers(DuckDB *db, idx_t thread_idx, atomic<bool> *success) {
+static void ReadFromIntegers(DuckDB *db, idx_t thread_idx) {
 
 	Connection con(*db);
 	while (!concurrent_index_finished) {
 
 		auto expected_value = to_string(thread_idx * 10000);
 		auto result = con.Query("SELECT i FROM integers WHERE i = " + expected_value);
-		if (result->HasError()) {
-			*success = false;
-		} else if (!CHECK_COLUMN(result, 0, {Value::INTEGER(thread_idx * 10000)})) {
-			*success = false;
-		}
+		REQUIRE_NO_FAIL(*result);
+		REQUIRE(CHECK_COLUMN(result, 0, {Value::INTEGER(thread_idx * 10000)}));
 	}
 }
 
 TEST_CASE("Concurrent reads during index creation", "[index][.]") {
+
 	DuckDB db(nullptr);
 	Connection con(db);
 	REQUIRE_NO_FAIL(con.Query("SET immediate_transaction_mode=true"));
@@ -52,12 +50,10 @@ TEST_CASE("Concurrent reads during index creation", "[index][.]") {
 	CreateIntegerTable(&con, 1000000);
 	concurrent_index_finished = false;
 
-	atomic<bool> success(true);
-
 	// launch many reading threads
 	thread threads[CONCURRENT_INDEX_THREAD_COUNT];
 	for (idx_t i = 0; i < CONCURRENT_INDEX_THREAD_COUNT; i++) {
-		threads[i] = thread(ReadFromIntegers, &db, i, &success);
+		threads[i] = thread(ReadFromIntegers, &db, i);
 	}
 
 	// create the index
@@ -68,21 +64,17 @@ TEST_CASE("Concurrent reads during index creation", "[index][.]") {
 		threads[i].join();
 	}
 
-	REQUIRE(success);
-
 	// test that we can probe the index correctly
 	auto result = con.Query("SELECT COUNT(*) FROM integers WHERE i=500000");
 	REQUIRE_NO_FAIL(*result);
 	REQUIRE(CHECK_COLUMN(result, 0, {1}));
 }
 
-static void AppendToIntegers(DuckDB *db, atomic<bool> *success) {
+static void AppendToIntegers(DuckDB *db) {
+
 	Connection con(*db);
 	for (idx_t i = 0; i < CONCURRENT_INDEX_INSERT_COUNT; i++) {
-		auto result = con.Query("INSERT INTO integers VALUES (1)");
-		if (result->HasError()) {
-			*success = false;
-		}
+		REQUIRE_NO_FAIL(con.Query("INSERT INTO integers VALUES (1)"));
 	}
 }
 
@@ -94,12 +86,10 @@ TEST_CASE("Concurrent writes during index creation", "[index][.]") {
 
 	CreateIntegerTable(&con, 1000000);
 
-	atomic<bool> success(true);
-
 	// launch many concurrently writing threads
 	thread threads[CONCURRENT_INDEX_THREAD_COUNT];
 	for (idx_t i = 0; i < CONCURRENT_INDEX_THREAD_COUNT; i++) {
-		threads[i] = thread(AppendToIntegers, &db, &success);
+		threads[i] = thread(AppendToIntegers, &db);
 	}
 
 	// create the index
@@ -108,8 +98,6 @@ TEST_CASE("Concurrent writes during index creation", "[index][.]") {
 	for (idx_t i = 0; i < CONCURRENT_INDEX_THREAD_COUNT; i++) {
 		threads[i].join();
 	}
-
-	REQUIRE(success);
 
 	// first scan the base table to verify the count, we avoid using a filter here to prevent the
 	// optimizer from using an index scan
@@ -324,20 +312,14 @@ TEST_CASE("Parallel transactional appends to indexed table", "[index][.]") {
 }
 
 static void JoinIntegers(Connection *con) {
+
 	for (idx_t i = 0; i < 10; i++) {
 		auto result = con->Query("SELECT count(*) FROM integers INNER JOIN integers_2 ON (integers.i = integers_2.i)");
-		if (result->HasError()) {
-			FAIL();
-		}
-		if (!CHECK_COLUMN(result, 0, {Value::BIGINT(500000)})) {
-			FAIL();
-		}
+		REQUIRE_NO_FAIL(*result);
+		REQUIRE(CHECK_COLUMN(result, 0, {Value::BIGINT(500000)}));
 	}
 
-	auto result = con->Query("COMMIT");
-	if (result->HasError()) {
-		FAIL();
-	}
+	REQUIRE_NO_FAIL(con->Query("COMMIT"));
 }
 
 TEST_CASE("Concurrent appends during joins", "[index][.]") {
@@ -368,10 +350,9 @@ TEST_CASE("Concurrent appends during joins", "[index][.]") {
 	// before appending any data
 	threads[0] = thread(JoinIntegers, &join_con_1);
 
-	atomic<bool> success(true);
 	// launch many concurrently writing threads
 	for (idx_t i = 2; i < CONCURRENT_INDEX_THREAD_COUNT; i++) {
-		threads[i] = thread(AppendToIntegers, &db, &success);
+		threads[i] = thread(AppendToIntegers, &db);
 	}
 
 	// join the data in join_con_2, which is an uncommitted transaction started
@@ -381,5 +362,4 @@ TEST_CASE("Concurrent appends during joins", "[index][.]") {
 	for (idx_t i = 0; i < CONCURRENT_INDEX_THREAD_COUNT; i++) {
 		threads[i].join();
 	}
-	REQUIRE(success);
 }

@@ -19,7 +19,7 @@ struct StrpTimeFormat;
 struct JSONStructureNode {
 public:
 	JSONStructureNode();
-	JSONStructureNode(yyjson_val *key_p, yyjson_val *val_p, const bool ignore_errors);
+	JSONStructureNode(yyjson_val *key_p, yyjson_val *val_p);
 
 	//! Disable copy constructors
 	JSONStructureNode(const JSONStructureNode &other) = delete;
@@ -64,7 +64,7 @@ public:
 	JSONStructureDescription &operator=(JSONStructureDescription &&) noexcept;
 
 	JSONStructureNode &GetOrCreateChild();
-	JSONStructureNode &GetOrCreateChild(yyjson_val *key, yyjson_val *val, const bool ignore_errors);
+	JSONStructureNode &GetOrCreateChild(yyjson_val *key, yyjson_val *val);
 
 public:
 	//! Type of this description
@@ -80,7 +80,7 @@ public:
 
 struct JSONStructure {
 public:
-	static void ExtractStructure(yyjson_val *val, JSONStructureNode &node, const bool ignore_errors);
+	static void ExtractStructure(yyjson_val *val, JSONStructureNode &node);
 	static LogicalType StructureToType(ClientContext &context, const JSONStructureNode &node, const idx_t max_depth,
 	                                   const double field_appearance_threshold, idx_t depth = 0,
 	                                   idx_t sample_count = DConstants::INVALID_INDEX);

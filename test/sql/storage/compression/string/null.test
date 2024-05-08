@@ -20,7 +20,7 @@ PRAGMA force_compression='${compression}'
 
 # single NULL value
 statement ok
-CREATE or replace TABLE nulls(i VARCHAR)
+CREATE TABLE nulls(i VARCHAR)
 
 statement ok
 INSERT INTO nulls VALUES (NULL)
@@ -37,9 +37,12 @@ SELECT * FROM nulls
 ----
 NULL
 
+statement ok
+DROP TABLE nulls
+
 # many null values
 statement ok
-CREATE or replace TABLE nulls(i VARCHAR)
+CREATE TABLE nulls(i VARCHAR)
 
 statement ok
 INSERT INTO nulls SELECT NULL FROM range(70000)
@@ -56,21 +59,8 @@ SELECT COUNT(*), COUNT(i::INT), SUM(i::INT) FROM nulls
 ----
 70000	0	NULL
 
-statement ok
-select compression from pragma_storage_info('nulls') WHERE segment_type ILIKE 'VARCHAR' LIMIT 1;
-
 query I
-select current_setting('force_compression') ILIKE '${compression}'
-----
-true
-
-query I
-SELECT
-	compression ILIKE 'uncompressed' or
-	(
-		compression ILIKE 'dictionary' and '${compression}'='dictionary'
-	)
-	FROM pragma_storage_info('nulls') WHERE segment_type ILIKE 'VARCHAR' LIMIT 1
+SELECT lower(compression)='uncompressed' or (lower(compression)='dictionary' and '${compression}'='dictionary') FROM pragma_storage_info('nulls') WHERE segment_type ILIKE 'VARCHAR' LIMIT 1
 ----
 1
 
@@ -98,8 +88,9 @@ SELECT lower(compression)='${compression}' FROM pragma_storage_info('nulls') WHE
 ----
 1
 
-# enable_fsst_vector
+statement ok
+DROP TABLE nulls
+
 endloop
 
-# compression
 endloop

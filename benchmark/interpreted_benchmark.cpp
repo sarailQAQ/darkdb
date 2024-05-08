@@ -177,15 +177,6 @@ void InterpretedBenchmark::LoadBenchmark() {
 				throw std::runtime_error(reader.FormatException("require requires a single parameter"));
 			}
 			extensions.insert(splits[1]);
-		} else if (splits[0] == "resultmode") {
-			if (splits.size() != 2) {
-				throw std::runtime_error(reader.FormatException("resultmode requires a single parameter"));
-			}
-			if (splits[1] != "streaming") {
-				throw std::runtime_error(
-				    reader.FormatException("Invalid argument for resultmode, valid option is 'streaming'"));
-			}
-			streaming = true;
 		} else if (splits[0] == "cache") {
 			if (splits.size() == 2) {
 				cache_db = splits[1];
@@ -430,14 +421,7 @@ string InterpretedBenchmark::GetQuery() {
 
 void InterpretedBenchmark::Run(BenchmarkState *state_p) {
 	auto &state = (InterpretedBenchmarkState &)*state_p;
-	auto &context = state.con.context;
-	auto temp_result = context->Query(run_query, streaming);
-	if (temp_result->type == QueryResultType::STREAM_RESULT) {
-		auto &stream_query = temp_result->Cast<StreamQueryResult>();
-		state.result = stream_query.Materialize();
-	} else {
-		state.result = unique_ptr_cast<duckdb::QueryResult, duckdb::MaterializedQueryResult>(std::move(temp_result));
-	}
+	state.result = state.con.Query(run_query);
 }
 
 void InterpretedBenchmark::Cleanup(BenchmarkState *state_p) {

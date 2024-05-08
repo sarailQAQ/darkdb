@@ -13,8 +13,6 @@
 
 namespace duckdb_hll {
 
-// NOLINTBEGIN
-
 /* Error codes */
 #define HLL_C_OK  0
 #define HLL_C_ERR -1
@@ -41,8 +39,6 @@ robj *hll_merge(robj **hlls, size_t hll_count);
 uint64_t get_size();
 
 uint64_t MurmurHash64A(const void *key, int len, unsigned int seed);
-
-// NOLINTEND
 
 } // namespace duckdb_hll
 

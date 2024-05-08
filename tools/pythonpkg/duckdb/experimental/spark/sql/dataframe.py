@@ -3,8 +3,10 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Dict,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
     cast,
@@ -14,7 +16,6 @@ from typing import (
 import duckdb
 from duckdb import ColumnExpression, Expression, StarExpression
 
-from ._typing import ColumnOrName
 from ..errors import PySparkTypeError
 from ..exception import ContributionsAcceptedError
 from .column import Column
@@ -37,7 +38,7 @@ class DataFrame:
         self.relation = relation
         self.session = session
         self._schema = None
-        if self.relation is not None:
+        if self.relation != None:
             self._schema = duckdb_to_spark_schema(self.relation.columns, self.relation.types)
 
     def show(self, **kwargs) -> None:

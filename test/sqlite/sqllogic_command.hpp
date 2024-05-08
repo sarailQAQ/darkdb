@@ -9,7 +9,6 @@
 #pragma once
 
 #include "duckdb.hpp"
-#include "duckdb/common/virtual_file_system.hpp"
 
 namespace duckdb {
 class SQLLogicTestRunner;
@@ -141,21 +140,6 @@ public:
 private:
 	idx_t duration;
 	SleepUnit unit;
-};
-
-class UnzipCommand : public Command {
-public:
-	// 1 MB
-	static constexpr const int64_t BUFFER_SIZE = 1u << 20;
-
-public:
-	UnzipCommand(SQLLogicTestRunner &runner, string &input, string &output);
-
-	void ExecuteInternal(ExecuteContext &context) const override;
-
-private:
-	string input_path;
-	string extraction_path;
 };
 
 } // namespace duckdb

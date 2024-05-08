@@ -35,10 +35,10 @@ japanese
 persian
 roc
 
-query IIIII
+query IIII
 SELECT * FROM duckdb_settings() WHERE name = 'Calendar';
 ----
-Calendar	gregorian	The current calendar	VARCHAR	LOCAL
+Calendar	gregorian	The current calendar	VARCHAR
 
 statement error
 SET Calendar = 'fnord';
@@ -72,10 +72,10 @@ CREATE TABLE timestamps AS SELECT ts::TIMESTAMPTZ AS ts, era FROM (VALUES
 statement ok
 SET Calendar = 'japanese';
 
-query IIIII
+query IIII
 SELECT * FROM duckdb_settings() WHERE name = 'Calendar';
 ----
-Calendar	japanese	The current calendar	VARCHAR	LOCAL
+Calendar	japanese	The current calendar	VARCHAR
 
 # See http://www.meijigakuin.ac.jp/~watson/ref/mtsh.html for details on recent era boundaries.
 query III

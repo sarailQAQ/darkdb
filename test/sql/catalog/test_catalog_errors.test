@@ -40,7 +40,6 @@ CREATE INDEX i_index ON integers(i);
 statement error
 CREATE INDEX i_index ON integers(i);
 ----
-already exists
 
 # with IF NOT EXISTS it does not fail!
 statement ok
@@ -59,19 +58,9 @@ DROP INDEX i_index
 statement ok
 DROP INDEX IF EXISTS i_index
 
-# create the index again, but as unique to exercise special handling due to indexes generated column constraints
+# create the index again
 statement ok
-CREATE UNIQUE INDEX i_index ON integers(i);
-
-# cannot create an index that already exists
-statement error
-CREATE UNIQUE INDEX i_index ON integers(i);
-----
-already exists
-
-# with IF NOT EXISTS it does not fail!
-statement ok
-CREATE UNIQUE INDEX IF NOT EXISTS i_index ON integers(i);
+CREATE INDEX i_index ON integers(i);
 
 # dropping the table also drops the index
 statement ok

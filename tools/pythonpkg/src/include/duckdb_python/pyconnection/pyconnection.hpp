@@ -22,7 +22,6 @@
 #include "duckdb/function/scalar_function.hpp"
 #include "duckdb_python/pybind11/conversions/exception_handling_enum.hpp"
 #include "duckdb_python/pybind11/conversions/python_udf_type_enum.hpp"
-#include "duckdb/common/shared_ptr.hpp"
 
 namespace duckdb {
 
@@ -38,7 +37,7 @@ public:
 	unique_ptr<PythonTableArrowArrayStreamFactory> arrow_factory;
 };
 
-struct DuckDBPyConnection : public enable_shared_from_this<DuckDBPyConnection> {
+struct DuckDBPyConnection : public std::enable_shared_from_this<DuckDBPyConnection> {
 public:
 	shared_ptr<DuckDB> database;
 	unique_ptr<Connection> connection;
@@ -82,8 +81,6 @@ public:
 	        const py::object &filename = py::none(), const py::object &null_padding = py::none(),
 	        const py::object &names = py::none());
 
-	py::list ExtractStatements(const string &query);
-
 	unique_ptr<DuckDBPyRelation> ReadJSON(const string &filename, const Optional<py::object> &columns = py::none(),
 	                                      const Optional<py::object> &sample_size = py::none(),
 	                                      const Optional<py::object> &maximum_depth = py::none(),
@@ -111,13 +108,11 @@ public:
 
 	shared_ptr<DuckDBPyConnection> UnregisterUDF(const string &name);
 
-	shared_ptr<DuckDBPyConnection> ExecuteMany(const py::object &query, py::object params = py::list());
+	shared_ptr<DuckDBPyConnection> ExecuteMany(const string &query, py::object params = py::list());
 
-	unique_ptr<QueryResult> ExecuteInternal(vector<unique_ptr<SQLStatement>> statements, py::object params = py::list(),
-	                                        bool many = false);
+	unique_ptr<QueryResult> ExecuteInternal(const string &query, py::object params = py::list(), bool many = false);
 
-	shared_ptr<DuckDBPyConnection> Execute(const py::object &query, py::object params = py::list(), bool many = false);
-	shared_ptr<DuckDBPyConnection> ExecuteFromString(const string &query);
+	shared_ptr<DuckDBPyConnection> Execute(const string &query, py::object params = py::list(), bool many = false);
 
 	shared_ptr<DuckDBPyConnection> Append(const string &name, const PandasDataFrame &value, bool by_name);
 
@@ -127,7 +122,7 @@ public:
 
 	void LoadExtension(const string &extension);
 
-	unique_ptr<DuckDBPyRelation> RunQuery(const py::object &query, string alias = "",
+	unique_ptr<DuckDBPyRelation> RunQuery(const string &query, string alias = "",
 	                                      const py::object &params = py::none());
 
 	unique_ptr<DuckDBPyRelation> Table(const string &tname);
@@ -167,8 +162,6 @@ public:
 	shared_ptr<DuckDBPyConnection> Commit();
 
 	shared_ptr<DuckDBPyConnection> Rollback();
-
-	shared_ptr<DuckDBPyConnection> Checkpoint();
 
 	void Close();
 
@@ -233,7 +226,6 @@ private:
 	                               FunctionNullHandling null_handling, PythonExceptionHandling exception_handling,
 	                               bool side_effects);
 	void RegisterArrowObject(const py::object &arrow_object, const string &name);
-	vector<unique_ptr<SQLStatement>> GetStatements(const py::object &query);
 
 	static PythonEnvironmentType environment;
 	static void DetectEnvironment();

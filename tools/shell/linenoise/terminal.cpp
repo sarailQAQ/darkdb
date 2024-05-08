@@ -10,8 +10,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <sys/ioctl.h>
-#include <sys/select.h>
-#include <sys/time.h>
 
 namespace duckdb {
 
@@ -67,7 +65,7 @@ int Terminal::EnableRawMode() {
 	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
 	/* output modes - disable post processing */
 	raw.c_oflag &= ~(OPOST);
-#ifdef IUTF8
+#ifndef __MVS__
 	/* control modes - set 8 bit chars */
 	raw.c_iflag |= IUTF8;
 #endif

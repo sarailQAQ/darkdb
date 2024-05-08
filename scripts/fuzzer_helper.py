@@ -6,8 +6,20 @@ import subprocess
 import reduce_sql
 import fuzzer_helper
 
+if 'FUZZEROFDUCKSKEY' not in os.environ:
+    print("FUZZEROFDUCKSKEY not found in environment variables")
+    exit(1)
 
 USERNAME = 'fuzzerofducks'
+TOKEN = os.environ['FUZZEROFDUCKSKEY']
+
+if len(TOKEN) == 0:
+    print("FUZZEROFDUCKSKEY is set but is empty")
+    exit(1)
+
+if len(TOKEN) != 40:
+    print("Incorrect length for FUZZEROFDUCKSKEY")
+    exit(1)
 
 REPO_OWNER = 'duckdb'
 REPO_NAME = 'duckdb-fuzzer'
@@ -30,30 +42,20 @@ footer = '''
 ```'''
 
 
+def get_github_hash():
+    proc = subprocess.Popen(['git', 'rev-parse', 'HEAD'], stdout=subprocess.PIPE)
+    return proc.stdout.read().decode('utf8').strip()
+
+
 # github stuff
 def issue_url():
     return 'https://api.github.com/repos/%s/%s/issues' % (REPO_OWNER, REPO_NAME)
 
 
-def get_token():
-    if 'FUZZEROFDUCKSKEY' not in os.environ:
-        print("FUZZEROFDUCKSKEY not found in environment variables")
-        exit(1)
-    token = os.environ['FUZZEROFDUCKSKEY']
-    if len(token) == 0:
-        print("FUZZEROFDUCKSKEY is set but is empty")
-        exit(1)
-
-    if len(token) != 40:
-        print("Incorrect length for FUZZEROFDUCKSKEY")
-        exit(1)
-    return token
-
-
 def create_session():
     # Create an authenticated session to create the issue
     session = requests.Session()
-    session.headers.update({'Authorization': 'token %s' % (get_token(),)})
+    session.headers.update({'Authorization': 'token %s' % (TOKEN,)})
     return session
 
 
@@ -73,9 +75,9 @@ def make_github_issue(title, body):
         raise Exception("Failed to create issue")
 
 
-def get_github_issues(page):
+def get_github_issues():
     session = create_session()
-    url = issue_url() + '?per_page=100&page=' + str(page)
+    url = issue_url()
     r = session.get(url)
     if r.status_code != 200:
         print('Failed to get list of issues')
@@ -97,19 +99,6 @@ def close_github_issue(number):
         raise Exception("Failed to close issue")
 
 
-def label_github_issue(number, label):
-    session = create_session()
-    url = issue_url() + '/' + str(number)
-    params = {'labels': [label]}
-    r = session.patch(url, json.dumps(params))
-    if r.status_code == 200:
-        print(f'Successfully labeled Issue "{number}"')
-    else:
-        print(f'Could not label Issue "{number}" (status code {r.status_code})')
-        print('Response:', r.content.decode('utf8'))
-        raise Exception("Failed to label issue")
-
-
 def extract_issue(body, nr):
     try:
         splits = body.split(middle)
@@ -125,55 +114,38 @@ def extract_issue(body, nr):
 def run_shell_command_batch(shell, cmd):
     command = [shell, '--batch', '-init', '/dev/null']
 
-    try:
-        res = subprocess.run(
-            command, input=bytearray(cmd, 'utf8'), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300
-        )
-    except subprocess.TimeoutExpired:
-        print(f"TIMEOUT... {cmd}")
-        return ("", "", 0, True)
+    res = subprocess.run(command, input=bytearray(cmd, 'utf8'), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = res.stdout.decode('utf8').strip()
     stderr = res.stderr.decode('utf8').strip()
-    return (stdout, stderr, res.returncode, False)
+    return (stdout, stderr, res.returncode)
 
 
-def test_reproducibility(shell, issue, current_errors, perform_check):
+def test_reproducibility(shell, issue, current_errors):
     extract = extract_issue(issue['body'], issue['number'])
-    labels = issue['labels']
-    label_timeout = False
-    for label in labels:
-        if label['name'] == 'timeout':
-            label_timeout = True
     if extract is None:
         # failed extract: leave the issue as-is
         return True
     sql = extract[0] + ';'
     error = extract[1]
-    if perform_check is True and label_timeout is False:
-        print(f"Checking issue {issue['number']}...")
-        (stdout, stderr, returncode, is_timeout) = run_shell_command_batch(shell, sql)
-        if is_timeout:
-            label_github_issue(issue['number'], 'timeout')
-        else:
-            if returncode == 0:
-                return False
-            if not fuzzer_helper.is_internal_error(stderr):
-                return False
+    (stdout, stderr, returncode) = run_shell_command_batch(shell, sql)
+    if returncode == 0:
+        return False
+    if not fuzzer_helper.is_internal_error(stderr):
+        return False
     # issue is still reproducible
     current_errors[error] = issue
     return True
 
 
-def extract_github_issues(shell, perform_check):
+def extract_github_issues(shell):
     current_errors = dict()
-    for p in range(1, 10):
-        issues = get_github_issues(p)
-        for issue in issues:
-            # check if the github issue is still reproducible
-            if not test_reproducibility(shell, issue, current_errors, perform_check):
-                # the issue appears to be fixed - close the issue
-                print(f"Failed to reproduce issue {issue['number']}, closing...")
-                close_github_issue(int(issue['number']))
+    issues = get_github_issues()
+    for issue in issues:
+        # check if the github issue is still reproducible
+        if not test_reproducibility(shell, issue, current_errors):
+            # the issue appears to be fixed - close the issue
+            print(f"Failed to reproduce issue {issue['number']}, closing...")
+            close_github_issue(int(issue['number']))
     return current_errors
 
 

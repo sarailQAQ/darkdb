@@ -11,6 +11,10 @@ CREATE TABLE booleans(bool BOOLEAN);
 statement ok
 INSERT INTO booleans VALUES(NULL);
 
+statement error
+SELECT current_schemas(ref_0.bool) AS c4 FROM booleans AS ref_0;
+----
+
 query I
 SELECT current_schemas(false);
 ----
@@ -20,7 +24,3 @@ query I
 SELECT current_schemas(NULL);
 ----
 NULL
-
-statement error
-SELECT current_schemas(ref_0.bool) AS c4 FROM booleans AS ref_0;
-----

@@ -1,4 +1,4 @@
-    #include "duckdb/parallel/pipeline_executor.hpp"
+#include "duckdb/parallel/pipeline_executor.hpp"
 #include "duckdb/main/client_context.hpp"
 #include "duckdb/common/limits.hpp"
 

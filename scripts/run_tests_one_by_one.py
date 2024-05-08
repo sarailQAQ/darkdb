@@ -25,8 +25,8 @@ parser.add_argument('--list', action='store_true', help='Print the list of tests
 parser.add_argument(
     '--timeout',
     action='store',
-    help='Add a timeout for each test (in seconds, default: 3600s - i.e. one hour)',
-    default=3600,
+    help='Add an optional timeout for each test (in seconds)',
+    default=None,
     type=valid_timeout,
 )
 
@@ -95,12 +95,12 @@ def parse_assertions(stdout):
             space_before_num = line.rfind(' ', 0, pos - 2)
             return line[space_before_num + 2 : pos + 10]
 
-    return "ERROR"
+    return ""
 
 
 for test_number, test_case in enumerate(test_cases):
     if not profile:
-        print(f"[{test_number}/{test_count}]: {test_case}", end="", flush=True)
+        print(f"[{test_number}/{test_count}]: {test_case}", end="")
     start = time.time()
     try:
         res = subprocess.run(

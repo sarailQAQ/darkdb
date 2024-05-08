@@ -25,16 +25,15 @@ private:
 	void PushValue(yyjson_mut_val *val);
 
 public:
-	explicit JsonSerializer(yyjson_mut_doc *doc, bool skip_if_null, bool skip_if_empty, bool skip_if_default)
+	explicit JsonSerializer(yyjson_mut_doc *doc, bool skip_if_null, bool skip_if_empty)
 	    : doc(doc), stack({yyjson_mut_obj(doc)}), skip_if_null(skip_if_null), skip_if_empty(skip_if_empty) {
 		serialize_enum_as_string = true;
-		serialize_default_values = !skip_if_default;
+		serialize_default_values = true;
 	}
 
 	template <class T>
-	static yyjson_mut_val *Serialize(T &value, yyjson_mut_doc *doc, bool skip_if_null, bool skip_if_empty,
-	                                 bool skip_if_default) {
-		JsonSerializer serializer(doc, skip_if_null, skip_if_empty, skip_if_default);
+	static yyjson_mut_val *Serialize(T &value, yyjson_mut_doc *doc, bool skip_if_null, bool skip_if_empty) {
+		JsonSerializer serializer(doc, skip_if_null, skip_if_empty);
 		value.Serialize(serializer);
 		return serializer.GetRootObject();
 	}

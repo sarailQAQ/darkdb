@@ -15,9 +15,6 @@ namespace duckdb {
 using JSONPathType = JSONCommon::JSONPathType;
 
 static JSONPathType CheckPath(const Value &path_val, string &path, size_t &len) {
-	if (path_val.IsNull()) {
-		throw InternalException("JSON path cannot be NULL");
-	}
 	const auto path_str_val = path_val.DefaultCastAs(LogicalType::VARCHAR);
 	auto path_str = path_str_val.GetValueUnsafe<string_t>();
 	len = path_str.GetSize();
@@ -61,11 +58,9 @@ unique_ptr<FunctionData> JSONReadFunctionData::Bind(ClientContext &context, Scal
 	size_t len = 0;
 	JSONPathType path_type = JSONPathType::REGULAR;
 	if (arguments[1]->IsFoldable()) {
+		constant = true;
 		const auto path_val = ExpressionExecutor::EvaluateScalar(context, *arguments[1]);
-		if (!path_val.IsNull()) {
-			constant = true;
-			path_type = CheckPath(path_val, path, len);
-		}
+		path_type = CheckPath(path_val, path, len);
 	}
 	bound_function.arguments[1] = LogicalType::VARCHAR;
 	if (path_type == JSONCommon::JSONPathType::WILDCARD) {

@@ -169,13 +169,16 @@ ORDER BY 1
 /	i,a
 
 # ORDER + FILTER + DISTINCT
-statement error
+query II
 SELECT g, STRING_AGG(DISTINCT y, ',' ORDER BY x DESC) FILTER (WHERE g < 4)
 FROM strings
 GROUP BY g
 ORDER BY 1
 ----
-Binder Error: In a DISTINCT aggregate, ORDER BY expressions must appear in the argument list
+1	-,/
+2	-,+,/
+3	/
+4	NULL
 
 # ORDER BY on a correlated column
 statement ok

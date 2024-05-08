@@ -328,16 +328,7 @@ SQLRETURN SQL_API SQLGetStmtAttr(SQLHSTMT statement_handle, SQLINTEGER attribute
  * @return
  */
 SQLRETURN SQL_API SQLPrepare(SQLHSTMT statement_handle, SQLCHAR *statement_text, SQLINTEGER text_length) {
-	duckdb::OdbcHandleStmt *hstmt = nullptr;
-	SQLRETURN ret = ConvertHSTMT(statement_handle, hstmt);
-	if (ret != SQL_SUCCESS) {
-		return ret;
-	}
-
-	auto query = GetQueryAsString(hstmt, statement_text, text_length);
-	hstmt->stmt = hstmt->dbc->conn->Prepare(query);
-
-	return FinalizeStmt(hstmt);
+	return duckdb::PrepareStmt(statement_handle, statement_text, text_length);
 }
 
 /**
@@ -375,7 +366,7 @@ SQLRETURN SQL_API SQLTables(SQLHSTMT statement_handle, SQLCHAR *catalog_name, SQ
                             SQLSMALLINT name_length3, SQLCHAR *table_type, SQLSMALLINT name_length4) {
 	duckdb::OdbcHandleStmt *hstmt = nullptr;
 	SQLRETURN ret = ConvertHSTMT(statement_handle, hstmt);
-	if (!SQL_SUCCEEDED(ret)) {
+	if (ret != SQL_SUCCESS) {
 		return ret;
 	}
 

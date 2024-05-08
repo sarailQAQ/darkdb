@@ -24,8 +24,6 @@ datetime.timedelta
 datetime.datetime
 datetime.datetime.min
 datetime.datetime.max
-datetime.datetime.combine
-datetime.timezone
 
 import decimal
 
@@ -45,7 +43,6 @@ ipywidgets.FloatProgress
 import numpy
 
 numpy.core.multiarray
-numpy.ma.masked
 numpy.ndarray
 numpy.datetime64
 numpy.generic

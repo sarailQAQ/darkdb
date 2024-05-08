@@ -14,7 +14,6 @@
 #include "linenoise.h"
 
 #define LINENOISE_MAX_LINE 204800
-#define LINENOISE_EDITOR
 
 namespace duckdb {
 struct highlightToken;
@@ -98,11 +97,6 @@ public:
 	void PerformSearch();
 	void SearchPrev();
 	void SearchNext();
-
-#ifdef LINENOISE_EDITOR
-	bool EditBufferWithEditor(const char *editor);
-	bool EditFileWithEditor(const string &file_name, const char *editor);
-#endif
 
 	char Search(char c);
 

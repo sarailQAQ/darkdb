@@ -10,8 +10,8 @@
 
 #include "util/util.h"
 #include "util/logging.h"
+#include "util/pod_array.h"
 #include "util/utf.h"
-#include "re2/pod_array.h"
 #include "re2/regexp.h"
 #include "re2/walker-inl.h"
 
@@ -28,6 +28,8 @@ bool Regexp::SimplifyRegexp(const StringPiece& src, ParseFlags flags,
   Regexp* sre = re->Simplify();
   re->Decref();
   if (sre == NULL) {
+    // Should not happen, since Simplify never fails.
+    LOG(ERROR) << "Simplify failed on " << src;
     if (status) {
       status->set_code(kRegexpInternalError);
       status->set_error_arg(src);
@@ -43,6 +45,9 @@ bool Regexp::SimplifyRegexp(const StringPiece& src, ParseFlags flags,
 // is this Regexp* simple?
 bool Regexp::ComputeSimple() {
   Regexp** subs;
+  auto ccb = char_class_.ccb_;
+  auto cc = char_class_.cc_;
+
   switch (op_) {
     case kRegexpNoMatch:
     case kRegexpEmptyMatch:
@@ -68,9 +73,9 @@ bool Regexp::ComputeSimple() {
       return true;
     case kRegexpCharClass:
       // Simple as long as the char class is not empty, not full.
-      if (arguments.char_class.ccb_ != NULL)
-        return !arguments.char_class.ccb_->empty() && !arguments.char_class.ccb_->full();
-      return !arguments.char_class.cc_->empty() && !arguments.char_class.cc_->full();
+      if (ccb != NULL)
+        return !ccb->empty() && !ccb->full();
+      return !cc->empty() && !cc->full();
     case kRegexpCapture:
       subs = sub();
       return subs[0]->simple();
@@ -178,24 +183,12 @@ Regexp* Regexp::Simplify() {
   CoalesceWalker cw;
   Regexp* cre = cw.Walk(this, NULL);
   if (cre == NULL)
-    return NULL;
-  if (cw.stopped_early()) {
-    cre->Decref();
-    return NULL;
-  }
+    return cre;
   SimplifyWalker sw;
   Regexp* sre = sw.Walk(cre, NULL);
   cre->Decref();
-  if (sre == NULL)
-    return NULL;
-  if (sw.stopped_early()) {
-    sre->Decref();
-    return NULL;
-  }
   return sre;
 }
-
-#define Simplify DontCallSimplify  // Avoid accidental recursion
 
 // Utility function for PostVisit implementations that compares re->sub() with
 // child_args to determine whether any child_args changed. In the common case,
@@ -220,10 +213,9 @@ Regexp* CoalesceWalker::Copy(Regexp* re) {
 }
 
 Regexp* CoalesceWalker::ShortVisit(Regexp* re, Regexp* parent_arg) {
-  // Should never be called: we use Walk(), not WalkExponential().
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  // This should never be called, since we use Walk and not
+  // WalkExponential.
   LOG(DFATAL) << "CoalesceWalker::ShortVisit called";
-#endif
   return re->Incref();
 }
 
@@ -247,10 +239,10 @@ Regexp* CoalesceWalker::PostVisit(Regexp* re,
       nre_subs[i] = child_args[i];
     // Repeats and Captures have additional data that must be copied.
     if (re->op() == kRegexpRepeat) {
-      nre->arguments.repeat.min_ = re->min();
-      nre->arguments.repeat.max_ = re->max();
+      nre->repeat_.min_ = re->min();
+      nre->repeat_.max_ = re->max();
     } else if (re->op() == kRegexpCapture) {
-      nre->arguments.capture.cap_ = re->cap();
+      nre->capture_.cap_ = re->cap();
     }
     return nre;
   }
@@ -351,61 +343,61 @@ void CoalesceWalker::DoCoalesce(Regexp** r1ptr, Regexp** r2ptr) {
 
   switch (r1->op()) {
     case kRegexpStar:
-      nre->arguments.repeat.min_ = 0;
-      nre->arguments.repeat.max_ = -1;
+      nre->repeat_.min_ = 0;
+      nre->repeat_.max_ = -1;
       break;
 
     case kRegexpPlus:
-      nre->arguments.repeat.min_ = 1;
-      nre->arguments.repeat.max_ = -1;
+      nre->repeat_.min_ = 1;
+      nre->repeat_.max_ = -1;
       break;
 
     case kRegexpQuest:
-      nre->arguments.repeat.min_ = 0;
-      nre->arguments.repeat.max_ = 1;
+      nre->repeat_.min_ = 0;
+      nre->repeat_.max_ = 1;
       break;
 
     case kRegexpRepeat:
-      nre->arguments.repeat.min_ = r1->min();
-      nre->arguments.repeat.max_ = r1->max();
+      nre->repeat_.min_ = r1->min();
+      nre->repeat_.max_ = r1->max();
       break;
 
     default:
-      nre->Decref();
       LOG(DFATAL) << "DoCoalesce failed: r1->op() is " << r1->op();
+      nre->Decref();
       return;
   }
 
   switch (r2->op()) {
     case kRegexpStar:
-      nre->arguments.repeat.max_ = -1;
+      nre->repeat_.max_ = -1;
       goto LeaveEmpty;
 
     case kRegexpPlus:
-      nre->arguments.repeat.min_++;
-      nre->arguments.repeat.max_ = -1;
+      nre->repeat_.min_++;
+      nre->repeat_.max_ = -1;
       goto LeaveEmpty;
 
     case kRegexpQuest:
       if (nre->max() != -1)
-        nre->arguments.repeat.max_++;
+        nre->repeat_.max_++;
       goto LeaveEmpty;
 
     case kRegexpRepeat:
-      nre->arguments.repeat.min_ += r2->min();
+      nre->repeat_.min_ += r2->min();
       if (r2->max() == -1)
-        nre->arguments.repeat.max_ = -1;
+        nre->repeat_.max_ = -1;
       else if (nre->max() != -1)
-        nre->arguments.repeat.max_ += r2->max();
+        nre->repeat_.max_ += r2->max();
       goto LeaveEmpty;
 
     case kRegexpLiteral:
     case kRegexpCharClass:
     case kRegexpAnyChar:
     case kRegexpAnyByte:
-      nre->arguments.repeat.min_++;
+      nre->repeat_.min_++;
       if (nre->max() != -1)
-        nre->arguments.repeat.max_++;
+        nre->repeat_.max_++;
       goto LeaveEmpty;
 
     LeaveEmpty:
@@ -420,9 +412,9 @@ void CoalesceWalker::DoCoalesce(Regexp** r1ptr, Regexp** r2ptr) {
       int n = 1;
       while (n < r2->nrunes() && r2->runes()[n] == r)
         n++;
-      nre->arguments.repeat.min_ += n;
+      nre->repeat_.min_ += n;
       if (nre->max() != -1)
-        nre->arguments.repeat.max_ += n;
+        nre->repeat_.max_ += n;
       if (n == r2->nrunes())
         goto LeaveEmpty;
       *r1ptr = nre;
@@ -432,8 +424,8 @@ void CoalesceWalker::DoCoalesce(Regexp** r1ptr, Regexp** r2ptr) {
     }
 
     default:
-      nre->Decref();
       LOG(DFATAL) << "DoCoalesce failed: r2->op() is " << r2->op();
+      nre->Decref();
       return;
   }
 
@@ -446,10 +438,9 @@ Regexp* SimplifyWalker::Copy(Regexp* re) {
 }
 
 Regexp* SimplifyWalker::ShortVisit(Regexp* re, Regexp* parent_arg) {
-  // Should never be called: we use Walk(), not WalkExponential().
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  // This should never be called, since we use Walk and not
+  // WalkExponential.
   LOG(DFATAL) << "SimplifyWalker::ShortVisit called";
-#endif
   return re->Incref();
 }
 
@@ -510,7 +501,7 @@ Regexp* SimplifyWalker::PostVisit(Regexp* re,
       Regexp* nre = new Regexp(kRegexpCapture, re->parse_flags());
       nre->AllocSub(1);
       nre->sub()[0] = newsub;
-      nre->arguments.capture.cap_ = re->cap();
+      nre->capture_.cap_ = re->cap();
       nre->simple_ = true;
       return nre;
     }
@@ -550,7 +541,7 @@ Regexp* SimplifyWalker::PostVisit(Regexp* re,
       if (newsub->op() == kRegexpEmptyMatch)
         return newsub;
 
-      Regexp* nre = SimplifyRepeat(newsub, re->arguments.repeat.min_, re->arguments.repeat.max_,
+      Regexp* nre = SimplifyRepeat(newsub, re->repeat_.min_, re->repeat_.max_,
                                    re->parse_flags());
       newsub->Decref();
       nre->simple_ = true;
@@ -662,4 +653,4 @@ Regexp* SimplifyWalker::SimplifyCharClass(Regexp* re) {
   return re->Incref();
 }
 
-}  // namespace re2
+}  // namespace duckdb_re2
