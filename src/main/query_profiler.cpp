@@ -444,12 +444,12 @@ void QueryProfiler::QueryTreeToStream(std::ostream &ss) const {
 //	}
 
 	constexpr idx_t TOTAL_BOX_WIDTH = 39;
-	ss << "┌─────────────────────────────────────┐\n";
-	ss << "│┌───────────────────────────────────┐│\n";
-	string total_time = "Total Time: " + RenderTiming(main_query.Elapsed());
-	ss << "││" + DrawPadded(total_time, TOTAL_BOX_WIDTH - 4) + "││\n";
-	ss << "│└───────────────────────────────────┘│\n";
-	ss << "└─────────────────────────────────────┘\n";
+	// ss << "┌─────────────────────────────────────┐\n";
+	// ss << "│┌───────────────────────────────────┐│\n";
+	// string total_time = "Total Time: " + RenderTiming(main_query.Elapsed());
+	// ss << "││" + DrawPadded(total_time, TOTAL_BOX_WIDTH - 4) + "││\n";
+	// ss << "│└───────────────────────────────────┘│\n";
+	// ss << "└─────────────────────────────────────┘\n";
 	// print phase timings
 	if (PrintOptimizerOutput()) {
 		bool has_previous_phase = false;
@@ -587,7 +587,7 @@ static void ToJSONRecursive(QueryProfiler::TreeNode &node, std::ostream &ss, int
 	ss << string(depth * 3, ' ') << "   ],\n";
 
 	ss << string(depth * 3, ' ') << "   \"view\": [";
-	for (int i = 0; i < node.view.ColumnCount(); i++) {
+	for (idx_t i = 0; i < node.view.ColumnCount(); i++) {
 		auto vec = node.view.GetValue(i, 0);
 	}
 	ss << string(depth * 3, ' ') << "   ],\n";

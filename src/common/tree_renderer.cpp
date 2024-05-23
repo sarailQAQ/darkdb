@@ -106,8 +106,7 @@ string AdjustTextForRendering(string source, idx_t max_render_width) {
 			break;
 		}
 	}
-//	201215121 李勇 男 20 CS
-//	│   ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─   │
+
 	if (render_width > max_render_width) {
 		// need to find a position to truncate
 		for (idx_t pos = render_widths.size(); pos > 0; pos--) {
@@ -450,7 +449,10 @@ static void GetTreeWidthHeight(const T &op, idx_t &width, idx_t &height) {
 template <class T>
 idx_t TreeRenderer::CreateRenderTreeRecursive(RenderTree &result, const T &op, idx_t x, idx_t y) {
 	auto node = TreeRenderer::CreateNode(op);
-	result.SetNode(x, y, std::move(node));
+	if (node) {
+		result.SetNode(x, y, std::move(node));
+		y++;
+	}
 
 	if (!TreeChildrenIterator::HasChildren(op)) {
 		return 1;
@@ -458,7 +460,7 @@ idx_t TreeRenderer::CreateRenderTreeRecursive(RenderTree &result, const T &op, i
 	idx_t width = 0;
 	// render the children of this node
 	TreeChildrenIterator::Iterate<T>(
-	    op, [&](const T &child) { width += CreateRenderTreeRecursive<T>(result, child, x + width, y + 1); });
+	    op, [&](const T &child) { width += CreateRenderTreeRecursive<T>(result, child, x + width, y); });
 	return width;
 }
 
@@ -501,6 +503,9 @@ string TreeRenderer::ExtractExpressionsRecursive(ExpressionInfo &state) {
 }
 
 unique_ptr<RenderTreeNode> TreeRenderer::CreateNode(const QueryProfiler::TreeNode &op) {
+	if (op.name == "RESULT_COLLECTOR" || op.name == "EXPLAIN_ANALYZE") {
+		return nullptr;
+	}
 	auto result = TreeRenderer::CreateRenderNode(op.name, op.extra_info);
 	if (op.view.size() > 0) {
 		result->extra_text += "\n[INFOSEPARATOR]";
@@ -509,18 +514,26 @@ unique_ptr<RenderTreeNode> TreeRenderer::CreateNode(const QueryProfiler::TreeNod
 			for (idx_t j = 0; j < op.view.ColumnCount(); j++) {
 				auto val = op.view.GetValue(j, i);
 
-				if (j > 0) result->extra_text += "  ";
-				result->extra_text += val.ToString();
-//				result->extra_text += " ";
+				if (j > 0)
+					result->extra_text += ",";
+
+				switch (val.type().id()) {
+				case LogicalTypeId::CHAR :
+				case LogicalTypeId::VARCHAR :
+					result->extra_text += "\"" + val.ToString() + "\"";
+					break;
+				default:
+					result->extra_text += val.ToString();
+				}
+				//				result->extra_text += " ";
 			}
 		}
 	}
 
-
-	result->extra_text += "\n[INFOSEPARATOR]";
-	result->extra_text += "\n" + to_string(op.info.elements);
-	string timing = StringUtil::Format("%.2f", op.info.time);
-	result->extra_text += "\n(" + timing + "s)";
+	// result->extra_text += "\n[INFOSEPARATOR]";
+	// result->extra_text += "\n" + to_string(op.info.elements);
+	// string timing = StringUtil::Format("%.2f", op.info.time);
+	// result->extra_text += "\n(" + timing + "s)";
 	if (config.detailed) {
 		for (auto &info : op.info.executors_info) {
 			if (!info) {

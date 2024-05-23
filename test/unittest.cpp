@@ -51,8 +51,8 @@ int main() {
 //		 con.Query("INSERT into CStudent Values"
 //		           "(201215120,'张煜煜','男',19,'IS');");
 
-//	auto res = con.Query("explain analyze SELECT CStudent.Sno, Sname, CNo, Grade FROM CStudent, CSC WHERE CStudent.Sno=CSC.Sno;");
-	auto res = con.Query("explain analyze SELECT * Grade FROM CStudent;");
+	auto res = con.Query("explain analyze SELECT CStudent.Sno, CNo, Grade FROM CStudent, CSC WHERE CStudent.Sno=CSC.Sno;");
+	// auto res = con.Query("describe CStudent;");
 	res->Print();
 }
 

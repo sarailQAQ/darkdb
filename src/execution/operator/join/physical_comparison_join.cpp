@@ -30,8 +30,8 @@ string PhysicalComparisonJoin::ParamsToString() const {
 		string op = ExpressionTypeToOperator(it.comparison);
 		extra_info += it.left->GetName() + " " + op + " " + it.right->GetName() + "\n";
 	}
-	extra_info += "\n[INFOSEPARATOR]\n";
-	extra_info += StringUtil::Format("EC: %llu\n", estimated_cardinality);
+	// extra_info += "\n[INFOSEPARATOR]\n";
+	// extra_info += StringUtil::Format("EC: %llu\n", estimated_cardinality);
 	return extra_info;
 }
 
